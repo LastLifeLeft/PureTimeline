@@ -8,13 +8,22 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-07 13:37" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-07 13:43" user="poshu" host="MINIMONSTRO"/>
   </section>
-  <section name="files"/>
+  <section name="files">
+    <file name="Example.pb">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
+      <fingerprint md5="d896cd1a22eb977deca89eb37f1d8bf0"/>
+    </file>
+    <file name="PureTimeline.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
+      <fingerprint md5="d41d8cd98f00b204e9800998ecf8427e"/>
+    </file>
+  </section>
   <section name="targets">
     <target name="Default Target" enabled="1" default="1">
-      <inputfile value=""/>
-      <outputfile value=""/>
+      <inputfile value="Example.pb"/>
+      <outputfile value="PureTimeline Example.exe"/>
       <options xpskin="1" debug="1"/>
     </target>
   </section>
