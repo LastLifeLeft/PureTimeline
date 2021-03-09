@@ -8,16 +8,16 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-07 13:43" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-09 10:15" user="poshu" host="MINIMONSTRO"/>
   </section>
   <section name="files">
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="d896cd1a22eb977deca89eb37f1d8bf0"/>
+      <fingerprint md5="f50b44dcbb30ef06ae46f2695cc1fa0d"/>
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="d41d8cd98f00b204e9800998ecf8427e"/>
+      <fingerprint md5="9eee45aa26e6928610e3ed0c54bb5b5d"/>
     </file>
   </section>
   <section name="targets">
