@@ -1,0 +1,3 @@
+[submodule "MaterialVector"]
+	path = MaterialVector
+	url = https://github.com/LastLifeLeft/MaterialVector
