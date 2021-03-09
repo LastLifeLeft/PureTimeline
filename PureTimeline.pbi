@@ -14,6 +14,7 @@ DeclareModule PureTL
 	Declare RemoveItem(Gadget)
 	Declare SetDuration(Gadget)
 	Declare Freeze(Gadget, State) ;Disable the redrawing of the gadget (Should be used before a large amount is done to avoid CPU consumption spike)
+	Declare Resize(Gadget, x, y, Width, Height)
 	
 EndDeclareModule
 
@@ -57,11 +58,16 @@ Module PureTL
 		
 		;Componants
 		VScrollbar_ID.i
-		VScrollbar_Hidden.b
+		VScrollbar_Visible.b
 		VScrollbar_Width.i
+		VScrollbar_Page.i
+		VScrollbar_Position.i
+		
 		HScrollbar_ID.i
-		HScrollbar_Hidden.b
+		HScrollbar_Visible.b
 		HScrollbar_Height.i
+		HScrollbar_Page.i
+		HScrollbar_Position.i
 		
 		;state
 		VerticalMovement.b
@@ -76,6 +82,7 @@ Module PureTL
 		Body_Width.i
 		FontID.i
 		Font.i
+		VisibleItems.i
 		List DisplayedItems.DisplayedItem()
 		
 		;Items
@@ -90,7 +97,7 @@ Module PureTL
 	#Style_BorderThickness = 1
 	
 	#Style_ItemList_Width = 240
-	#Style_ItemList_ItemHeight = 42
+	#Style_ItemList_ItemHeight = 38
 	
 	#Style_ItemList_FoldOffset = 9
 	#Style_ItemList_FoldSize = 12
@@ -101,6 +108,8 @@ Module PureTL
 	#Style_ItemList_TextVOffset = (#Style_ItemList_ItemHeight - 20) / 2
 	
 	#Style_VectorText = #False ; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text.
+	
+	
 	
 	;Colors
 	Global Color_Border = RGBA(16,16,16,255)
@@ -116,10 +125,13 @@ Module PureTL
 	; Private procedures declaration
 	Declare Redraw(Gadget, CompleteRedraw = #False)
 	
-	Declare Handler()
+	Declare HandlerCanvas()
+	
+	Declare HandlerVScrollbar()
 	
 	Declare SearchDisplayedItem(*data.GadgetData, *Adress)
 	
+	Declare Refit(Gadget)
 	
 	; Public procedures
 	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #False)
@@ -141,16 +153,20 @@ Module PureTL
 			*data\XOffset = *data\Border + *data\ItemList_Width
 			*data\Body_Height = Height - *data\YOffset - *data\Border
 			*data\Body_Width = Width - *data\ItemList_Width - 2 * *data\Border
+			*data\VisibleItems = Round(*data\Body_Height / #Style_ItemList_ItemHeight, #PB_Round_Down)
 			
 			*data\VScrollbar_ID = ScrollBarGadget(#PB_Any, 0, *data\YOffset, 20, *data\Body_Height, 0, 10, 10,   #PB_ScrollBar_Vertical)
+			BindGadgetEvent(*data\VScrollbar_ID, @HandlerVScrollbar())
 			*data\VScrollbar_Width = GadgetWidth(*data\VScrollbar_ID, #PB_Gadget_RequiredSize)
-			*data\VScrollbar_Hidden = #True
+			*data\VScrollbar_Visible = #False
 			HideGadget(*data\VScrollbar_ID, #True)
+			SetGadgetData(*data\VScrollbar_ID, Gadget)
 			
 			*data\HScrollbar_ID = ScrollBarGadget(#PB_Any, 0, *data\YOffset, 20, *data\Body_Height, 0, 10, 10)
 			*data\HScrollbar_Height = GadgetHeight(*data\VScrollbar_ID, #PB_Gadget_RequiredSize)
-			*data\HScrollbar_Hidden = #True
+			*data\HScrollbar_Visible = #False
 			HideGadget(*data\HScrollbar_ID, #True)
+			SetGadgetData(*data\HScrollbar_ID, Gadget)
 			
 			*data\FontID = FontID(DefaultFont)
 			*data\Font = DefaultFont
@@ -158,7 +174,7 @@ Module PureTL
 			CloseGadgetList()
 			
 			SetGadgetData(Gadget, *data)
-			BindGadgetEvent(Gadget, @Handler())
+			BindGadgetEvent(Gadget, @HandlerCanvas())
 			
 			Redraw(Gadget, #True)
 		EndIf
@@ -188,7 +204,15 @@ Module PureTL
 		*data\DisplayedItems()\Adress = @*data\Items()
 		*data\DisplayedItems()\YOffset = *data\Border + #Style_ItemList_FoldOffset
 		
-		Redraw(Gadget, #True)
+		SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
+		
+		If (ListSize(*data\DisplayedItems()) > *data\VisibleItems) And Not *Data\VScrollbar_Visible
+			Refit(Gadget)
+		Else
+			If ListIndex(*data\DisplayedItems()) < *data\HScrollbar_Visible + *data\VisibleItems ; Avoid useless redraw...
+				Redraw(Gadget, #True)
+			EndIf
+		EndIf
 	EndProcedure
 	
 	Procedure AddSubItem(Gadget, Item, Name.s, Position)
@@ -229,8 +253,13 @@ Module PureTL
 				*data\DisplayedItems()\Type = #Item_Sub
 				*data\DisplayedItems()\YOffset = #Style_ItemList_SubTextOffset
 				
-				*data\VerticalMovement = #True
-				Redraw(Gadget)
+				SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
+				
+				If (ListSize(*data\DisplayedItems()) > *data\VisibleItems) And Not *Data\VScrollbar_Visible
+					Refit(Gadget)
+				Else ; We can avoid some redraw by checking if the new item is within the displayed area... Once scrolling is implemented, of course.
+					Redraw(Gadget, #True)
+				EndIf
 			EndIf
 		EndIf
 	EndProcedure
@@ -253,10 +282,14 @@ Module PureTL
 		*data\Frozen = State
 	EndProcedure
 	
+	Procedure Resize(Gadget, x, y, Width, Height)
+		
+	EndProcedure
+	
 	; Private procedures
 	Procedure Redraw(Gadget, CompleteRedraw = #False)
 		Protected *data.GadgetData = GetGadgetData(Gadget)
-		Protected YPos
+		Protected YPos, Loop
 		
 		If *data\Frozen
 			ProcedureReturn #False
@@ -284,26 +317,32 @@ Module PureTL
 			FillPath()
 			
 			VectorSourceColor(Color_ItemList_FrontColor)
-			ForEach *data\DisplayedItems()
-				YPos = ListIndex(*data\DisplayedItems()) * #Style_ItemList_ItemHeight + *data\YOffset
-				
-				If *data\DisplayedItems()\Type = #Item_Main
-					ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\Adress)
-					If *data\Items()\Folded = #Folded
-						MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, Color_ItemList_FrontColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_90)
-					ElseIf *data\Items()\Folded = #Unfolded
-						MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, Color_ItemList_FrontColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_180)
+			If SelectElement(*data\DisplayedItems(), *data\VScrollbar_Position)
+				For Loop = 0 To *data\VisibleItems
+					YPos = Loop * #Style_ItemList_ItemHeight + *data\YOffset
+					
+					If *data\DisplayedItems()\Type = #Item_Main
+						ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\Adress)
+						If *data\Items()\Folded = #Folded
+							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, Color_ItemList_FrontColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_90)
+						ElseIf *data\Items()\Folded = #Unfolded
+							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, Color_ItemList_FrontColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_180)
+						EndIf
+					Else
+						ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\ParentAdress)
+						ChangeCurrentElement(*data\Items()\SubItems(), *data\DisplayedItems()\Adress)
 					EndIf
-				Else
-					ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\ParentAdress)
-					ChangeCurrentElement(*data\Items()\SubItems(), *data\DisplayedItems()\Adress)
-				EndIf
-				
-				CompilerIf #Style_VectorText
-					MovePathCursor(*data\DisplayedItems()\YOffset, YPos + #Style_ItemList_TextVOffset, #PB_Path_Default)
-					DrawVectorText(*data\DisplayedItems()\Name) 
-				CompilerEndIf
-			Next
+					
+					CompilerIf #Style_VectorText
+						MovePathCursor(*data\DisplayedItems()\YOffset, YPos + #Style_ItemList_TextVOffset, #PB_Path_Default)
+						DrawVectorText(*data\DisplayedItems()\Name) 
+					CompilerEndIf
+					
+					If Not NextElement(*Data\DisplayedItems())
+						Break
+					EndIf
+				Next
+			EndIf
 		EndIf
 		;}
 		
@@ -332,9 +371,14 @@ Module PureTL
 				If CompleteRedraw Or *data\VerticalMovement
 					DrawingFont(*data\FontID)
 					DrawingMode(#PB_2DDrawing_Transparent)
-					ForEach *data\DisplayedItems()
-						DrawText(*data\DisplayedItems()\YOffset, ListIndex(*data\DisplayedItems()) * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,Color_ItemList_FrontColor, Color_ItemList_BackColor)
-					Next
+					If SelectElement(*data\DisplayedItems(), *data\VScrollbar_Position)
+						For Loop = 0 To *data\VisibleItems
+							DrawText(*data\DisplayedItems()\YOffset, Loop * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,Color_ItemList_FrontColor, Color_ItemList_BackColor)
+							If Not NextElement(*Data\DisplayedItems())
+								Break
+							EndIf
+						Next
+					EndIf
 				EndIf
 				
 				If *data\Border
@@ -348,8 +392,29 @@ Module PureTL
 		;}
 	EndProcedure
 	
-	Procedure Handler()
+	Procedure HandlerCanvas()
+		Protected Gadget = EventGadget(), MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX), MouseY =  GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
 		
+		
+		
+		Select EventType()
+			Case #PB_EventType_MouseMove
+				
+		EndSelect
+	EndProcedure
+	
+	Procedure HandlerVScrollbar()
+		Protected Gadget = EventGadget()
+		Protected State = GetGadgetState(Gadget)
+		Protected Canvas = GetGadgetData(Gadget)
+		Protected *data.GadgetData = GetGadgetData(Canvas)
+		
+		If Not (State = *data\VScrollbar_Position)
+			*data\VScrollbar_Position = State
+			*data\VerticalMovement = #True
+			Redraw(Canvas)
+		EndIf
+			
 	EndProcedure
 	
 	Procedure SearchDisplayedItem(*data.GadgetData, *Adress)
@@ -362,7 +427,36 @@ Module PureTL
 		ProcedureReturn #False
 	EndProcedure
 	
-	
+	Procedure Refit(Gadget)
+		Protected Height = GadgetHeight(Gadget), Width = GadgetWidth(Gadget)
+		Protected *data.GadgetData = GetGadgetData(Gadget)
+		
+		*data\Body_Height = Height - *data\YOffset - *data\Border
+		*data\VisibleItems = Round(*data\Body_Height / #Style_ItemList_ItemHeight, #PB_Round_Down)
+		
+		If ListSize(*data\DisplayedItems()) > *data\VisibleItems
+			*data\VScrollbar_Visible = #True
+			SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_PageLength, *data\VisibleItems)
+		Else
+			*data\VScrollbar_Visible = #False
+			*data\VScrollbar_Position = 0
+		EndIf
+		
+		*data\Body_Width = Width - *data\ItemList_Width - 2 * *data\Border - *data\VScrollbar_Width * *data\VScrollbar_Visible
+		
+		;Calculate available If we need the horizontal scrollbar
+		
+		If *data\VScrollbar_Visible
+			ResizeGadget(*data\VScrollbar_ID, Width - *data\Border - *data\VScrollbar_Width, *data\YOffset, *data\VScrollbar_Width, *data\Body_Height - *data\HScrollbar_Height * *data\HScrollbar_Visible)
+		Else
+			SetGadgetState(*data\VScrollbar_ID, 0)
+		EndIf
+		
+		HideGadget(*data\VScrollbar_ID, Bool(Not *data\VScrollbar_Visible))
+		HideGadget(*data\HScrollbar_ID, Bool(Not *data\HScrollbar_Visible))
+		
+		Redraw(Gadget, #True)
+	EndProcedure
 EndModule
 
 
@@ -405,8 +499,12 @@ EndModule
 
 
 
+
+
+
+
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 230
-; FirstLine = 135
-; Folding = vhn-
+; CursorPosition = 441
+; FirstLine = 303
+; Folding = -wPX+
 ; EnableXP
