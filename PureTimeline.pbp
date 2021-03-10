@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-10 03:41" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-10 14:25" user="poshu" host="MINIMONSTRO"/>
   </section>
   <section name="files">
     <file name="Example.pb">
@@ -16,8 +16,8 @@
       <fingerprint md5="851dbe6827ca5181cf5c4a3ccd8ccd14"/>
     </file>
     <file name="MaterialVector\MaterialVector.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="e1eacf9aa914b0dc3144af7ca1bde010"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
+      <fingerprint md5="067697473171419cab8da48a1abf578e"/>
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
