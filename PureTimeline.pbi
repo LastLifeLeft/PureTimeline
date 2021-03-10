@@ -301,7 +301,7 @@ Module PureTL
 	Procedure Redraw(Gadget, CompleteRedraw = #False)
 		;Ugly code is uglyyyyyy~. First place to refactor once everything is in.
 		Protected *data.GadgetData = GetGadgetData(Gadget)
-		Protected YPos, Loop
+		Protected YPos, Loop, LineCount, Height
 		Protected CurrentColor = Color_ItemList_FrontColor
 		
 		If *data\Frozen
@@ -373,6 +373,28 @@ Module PureTL
 		AddPathBox(*data\XOffset, *data\YOffset, *data\Body_Width, *data\Body_Height)
 		VectorSourceColor(Color_BackColor)
 		FillPath()
+		
+		LineCount = Loop
+		For Loop = 0 To LineCount
+			MovePathCursor(*data\XOffset, *data\YOffset + (Loop + 1) * #Style_ItemList_ItemHeight)
+			AddPathLine(*data\Body_Width, 0, #PB_Path_Relative)
+		Next
+		
+		Height = (LineCount + 1) * #Style_ItemList_ItemHeight
+		
+		If (*data\Duration +  #Style_Body_Margin) < *Data\VisibleUnits
+			LineCount = *data\Duration
+		Else
+			LineCount = *Data\VisibleUnits
+		EndIf
+		
+		For Loop = 0 To LineCount
+			MovePathCursor(*data\XOffset + (2 + Loop) * *data\Body_UnitWidth, *data\YOffset)
+			AddPathLine(0, Height, #PB_Path_Relative)
+		Next
+		
+		VectorSourceColor(RGBA(240, 240, 240, 255))
+		StrokePath(1)
 		
 		If *data\VScrollbar_Visible And *data\HScrollbar_Visible
 			AddPathBox(VectorOutputWidth() - *data\VScrollbar_Width, VectorOutputHeight() - *data\HScrollbar_Height,*data\VScrollbar_Width, *data\HScrollbar_Height)
@@ -697,7 +719,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 627
-; FirstLine = 192
+; CursorPosition = 382
+; FirstLine = 150
 ; Folding = PwcFx
 ; EnableXP
