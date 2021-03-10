@@ -82,9 +82,11 @@ Module PureTL
 		XOffset.i
 		Body_Height.i
 		Body_Width.i
+		Body_UnitWidth.i
 		FontID.i
 		Font.i
-		VisibleItems.i
+		VisibleItems.i							;current maximum number of displayable item. Will change when resizing or showing/hiding the header
+		VisibleUnits.i							;current  maximum number of displayable time unit. Will change when resizing or zooming.
 		List DisplayedItems.DisplayedItem()
 		
 		;Items
@@ -109,7 +111,10 @@ Module PureTL
 	#Style_ItemList_FoldVOffset = (#Style_ItemList_ItemHeight - #Style_ItemList_FoldSize) / 2
 	#Style_ItemList_TextVOffset = (#Style_ItemList_ItemHeight - 20) / 2
 	
-	#Style_VectorText = #False ; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text... Though multi drawing provokes the occasional flikering
+	#Style_VectorText = #False ; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text... Though drawing twice on the same canvas provokes the occasional flikering.
+	
+	#Style_Body_DefaultUnitWidth = 5
+	#Style_Body_Margin = 2																					; Number of empty unit placed at the start and the end of the timeline, making the gadget thing more legible.
 	
 	;Colors
 	Global Color_Border = RGBA(16,16,16,255)
@@ -120,9 +125,6 @@ Module PureTL
 	
 	Global Color_ItemList_BackColorHot = RGBA(57,60,67,255)
 	Global Color_ItemList_FrontColorHot = RGBA(255,255,255,255)
-	
-; 	Global Color_ItemList_BackColorSub = RGBA(52,55,60,255)
-; 	Global Color_ItemList_FrontColorSub = RGBA(220,221,222,255)
 	
 	;Icons
 	
@@ -158,10 +160,10 @@ Module PureTL
 			
 			*data\ItemList_Width = #Style_ItemList_Width
 			*data\YOffset = *data\Border + *data\Header * #Style_HeaderHeight
-			*data\XOffset = *data\Border + *data\ItemList_Width
-			*data\Body_Height = Height - *data\YOffset - *data\Border
-			*data\Body_Width = Width - *data\ItemList_Width - 2 * *data\Border
-			*data\VisibleItems = Round(*data\Body_Height / #Style_ItemList_ItemHeight, #PB_Round_Down)
+			*data\Body_UnitWidth = #Style_Body_DefaultUnitWidth
+			
+			*data\State = -1
+			*data\Duration = 120
 			
 			*data\VScrollbar_ID = ScrollBarGadget(#PB_Any, 0, *data\YOffset, 20, *data\Body_Height, 0, 10, 10,   #PB_ScrollBar_Vertical)
 			BindGadgetEvent(*data\VScrollbar_ID, @HandlerVScrollbar())
@@ -170,8 +172,8 @@ Module PureTL
 			HideGadget(*data\VScrollbar_ID, #True)
 			SetGadgetData(*data\VScrollbar_ID, Gadget)
 			
-			*data\HScrollbar_ID = ScrollBarGadget(#PB_Any, 0, *data\YOffset, 20, *data\Body_Height, 0, 10, 10)
-			*data\HScrollbar_Height = GadgetHeight(*data\VScrollbar_ID, #PB_Gadget_RequiredSize)
+			*data\HScrollbar_ID = ScrollBarGadget(#PB_Any, 0, *data\YOffset, 20, *data\Body_Height, 0, *data\Duration + 2, 10)
+			*data\HScrollbar_Height = GadgetHeight(*data\HScrollbar_ID, #PB_Gadget_RequiredSize)
 			*data\HScrollbar_Visible = #False
 			HideGadget(*data\HScrollbar_ID, #True)
 			SetGadgetData(*data\HScrollbar_ID, Gadget)
@@ -179,14 +181,12 @@ Module PureTL
 			*data\FontID = FontID(DefaultFont)
 			*data\Font = DefaultFont
 			
-			*data\State = -1
-			
 			CloseGadgetList()
 			
 			SetGadgetData(Gadget, *data)
 			BindGadgetEvent(Gadget, @HandlerCanvas())
 			
-			Redraw(Gadget, #True)
+			Refit(Gadget)
 		EndIf
 		
 		ProcedureReturn Result
@@ -293,7 +293,8 @@ Module PureTL
 	EndProcedure
 	
 	Procedure Resize(Gadget, x, y, Width, Height)
-		
+		ResizeGadget(Gadget, x, y, Width, Height)
+		Refit(Gadget)
 	EndProcedure
 	
 	; Private procedures
@@ -372,6 +373,12 @@ Module PureTL
 		AddPathBox(*data\XOffset, *data\YOffset, *data\Body_Width, *data\Body_Height)
 		VectorSourceColor(Color_BackColor)
 		FillPath()
+		
+		If *data\VScrollbar_Visible And *data\HScrollbar_Visible
+			AddPathBox(VectorOutputWidth() - *data\VScrollbar_Width, VectorOutputHeight() - *data\HScrollbar_Height,*data\VScrollbar_Width, *data\HScrollbar_Height)
+			VectorSourceColor(RGBA(240, 240, 240, 255))
+			FillPath()
+		EndIf
 		;}
 		
 		;{ Border
@@ -602,6 +609,8 @@ Module PureTL
 		Protected Height = GadgetHeight(Gadget), Width = GadgetWidth(Gadget)
 		Protected *data.GadgetData = GetGadgetData(Gadget)
 		
+		*data\XOffset = *data\Border + *data\ItemList_Width
+		
 		*data\Body_Height = Height - *data\YOffset - *data\Border
 		*data\VisibleItems = Round(*data\Body_Height / #Style_ItemList_ItemHeight, #PB_Round_Down)
 		
@@ -614,13 +623,26 @@ Module PureTL
 		EndIf
 		
 		*data\Body_Width = Width - *data\ItemList_Width - 2 * *data\Border - *data\VScrollbar_Width * *data\VScrollbar_Visible
+		*data\VisibleUnits = Round(*data\Body_Width / *Data\Body_UnitWidth, #PB_Round_Down)
 		
-		;Calculate available If we need the horizontal scrollbar
+		If *data\Duration + 2 * #Style_Body_Margin >= *data\VisibleUnits
+			*data\HScrollbar_Visible = #True
+			SetGadgetAttribute(*data\HScrollbar_ID, #PB_ScrollBar_PageLength, *data\VisibleUnits)
+		Else
+			*data\HScrollbar_Visible = #False
+			*data\HScrollbar_Position = 0
+		EndIf
 		
 		If *data\VScrollbar_Visible
 			ResizeGadget(*data\VScrollbar_ID, Width - *data\Border - *data\VScrollbar_Width, *data\YOffset, *data\VScrollbar_Width, *data\Body_Height - *data\HScrollbar_Height * *data\HScrollbar_Visible)
 		Else
 			SetGadgetState(*data\VScrollbar_ID, 0)
+		EndIf
+		
+		If *data\HScrollbar_Visible
+ 			ResizeGadget(*data\HScrollbar_ID, *data\XOffset, Height - *Data\HScrollbar_Height - *data\Border, *data\Body_Width, *data\HScrollbar_Height)
+		Else
+			SetGadgetState(*data\HScrollbar_ID, 0)
 		EndIf
 		
 		HideGadget(*data\VScrollbar_ID, Bool(Not *data\VScrollbar_Visible))
@@ -675,7 +697,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 339
-; FirstLine = 151
-; Folding = PwOHl
+; CursorPosition = 627
+; FirstLine = 192
+; Folding = PwcFx
 ; EnableXP
