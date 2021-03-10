@@ -73,6 +73,7 @@ Module PureTL
 		VerticalMovement.b
 		HorizontalMovement.b
 		ItemList_Width.i
+		State.i
 		
 		;Redraw
 		Frozen.b
@@ -107,9 +108,7 @@ Module PureTL
 	#Style_ItemList_FoldVOffset = (#Style_ItemList_ItemHeight - #Style_ItemList_FoldSize) / 2
 	#Style_ItemList_TextVOffset = (#Style_ItemList_ItemHeight - 20) / 2
 	
-	#Style_VectorText = #False ; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text.
-	
-	
+	#Style_VectorText = #False ; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text... Though multi drawing provokes the occasional flikering
 	
 	;Colors
 	Global Color_Border = RGBA(16,16,16,255)
@@ -117,6 +116,12 @@ Module PureTL
 	
 	Global Color_ItemList_BackColor = RGBA(47,49,54,255)
 	Global Color_ItemList_FrontColor = RGBA(142,146,151,255)
+	
+	Global Color_ItemList_BackColorHot = RGBA(57,60,67,255)
+	Global Color_ItemList_FrontColorHot = RGBA(255,255,255,255)
+	
+; 	Global Color_ItemList_BackColorSub = RGBA(52,55,60,255)
+; 	Global Color_ItemList_FrontColorSub = RGBA(220,221,222,255)
 	
 	;Icons
 	
@@ -132,6 +137,8 @@ Module PureTL
 	Declare SearchDisplayedItem(*data.GadgetData, *Adress)
 	
 	Declare Refit(Gadget)
+	
+	Declare ToggleFold(Gadget, *data.GadgetData, Item)
 	
 	; Public procedures
 	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #False)
@@ -170,6 +177,8 @@ Module PureTL
 			
 			*data\FontID = FontID(DefaultFont)
 			*data\Font = DefaultFont
+			
+			*data\State = -1
 			
 			CloseGadgetList()
 			
@@ -288,8 +297,10 @@ Module PureTL
 	
 	; Private procedures
 	Procedure Redraw(Gadget, CompleteRedraw = #False)
+		;Ugly code is uglyyyyyy~. First place to refactor once everything is in.
 		Protected *data.GadgetData = GetGadgetData(Gadget)
 		Protected YPos, Loop
+		Protected CurrentColor = Color_ItemList_FrontColor
 		
 		If *data\Frozen
 			ProcedureReturn #False
@@ -318,24 +329,30 @@ Module PureTL
 			
 			VectorSourceColor(Color_ItemList_FrontColor)
 			If SelectElement(*data\DisplayedItems(), *data\VScrollbar_Position)
-				For Loop = 0 To *data\VisibleItems
+				For Loop = 0 To *data\VisibleItems 
 					YPos = Loop * #Style_ItemList_ItemHeight + *data\YOffset
+					
+					If ListIndex(*data\DisplayedItems()) = *data\State
+						AddPathBox(*data\Border, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight)
+						VectorSourceColor(Color_ItemList_BackColorHot)
+						FillPath()
+						CurrentColor = Color_ItemList_FrontColorHot
+					Else
+						CurrentColor = Color_ItemList_FrontColor
+					EndIf
 					
 					If *data\DisplayedItems()\Type = #Item_Main
 						ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\Adress)
 						If *data\Items()\Folded = #Folded
-							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, Color_ItemList_FrontColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_90)
+							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, CurrentColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_90)
 						ElseIf *data\Items()\Folded = #Unfolded
-							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, Color_ItemList_FrontColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_180)
+							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, CurrentColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_180)
 						EndIf
-					Else
-						ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\ParentAdress)
-						ChangeCurrentElement(*data\Items()\SubItems(), *data\DisplayedItems()\Adress)
 					EndIf
 					
-					CompilerIf #Style_VectorText
+					CompilerIf #Style_VectorText 
 						MovePathCursor(*data\DisplayedItems()\YOffset, YPos + #Style_ItemList_TextVOffset, #PB_Path_Default)
-						DrawVectorText(*data\DisplayedItems()\Name) 
+						DrawVectorText(*data\DisplayedItems()\Name)
 					CompilerEndIf
 					
 					If Not NextElement(*Data\DisplayedItems())
@@ -365,20 +382,25 @@ Module PureTL
 		
 		;{ Border and Itemlist in 2DDrawing mode
 		CompilerIf Not #Style_VectorText
-			If CompleteRedraw Or *data\VerticalMovement Or *data\Border 
+			If CompleteRedraw Or *data\VerticalMovement
+				*data\VerticalMovement = #False
+				
 				StartDrawing(CanvasOutput(Gadget))
 				
-				If CompleteRedraw Or *data\VerticalMovement
-					DrawingFont(*data\FontID)
-					DrawingMode(#PB_2DDrawing_Transparent)
-					If SelectElement(*data\DisplayedItems(), *data\VScrollbar_Position)
-						For Loop = 0 To *data\VisibleItems
-							DrawText(*data\DisplayedItems()\YOffset, Loop * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,Color_ItemList_FrontColor, Color_ItemList_BackColor)
-							If Not NextElement(*Data\DisplayedItems())
-								Break
-							EndIf
-						Next
-					EndIf
+				DrawingFont(*data\FontID)
+				DrawingMode(#PB_2DDrawing_Transparent)
+				If SelectElement(*data\DisplayedItems(), *data\VScrollbar_Position)
+					For Loop = 0 To *data\VisibleItems
+						If ListIndex(*data\DisplayedItems()) = *data\State
+							DrawText(*data\DisplayedItems()\YOffset, Loop * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,Color_ItemList_FrontColorHot, 0)
+						Else
+							DrawText(*data\DisplayedItems()\YOffset, Loop * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,Color_ItemList_FrontColor, 0)
+						EndIf
+						
+						If Not NextElement(*Data\DisplayedItems())
+							Break
+						EndIf
+					Next
 				EndIf
 				
 				If *data\Border
@@ -393,14 +415,150 @@ Module PureTL
 	EndProcedure
 	
 	Procedure HandlerCanvas()
-		Protected Gadget = EventGadget(), MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX), MouseY =  GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
-		
-		
+		Protected Gadget = EventGadget(), MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX), MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+		Protected *data.GadgetData = GetGadgetData(Gadget)
+		Protected Item, Key
 		
 		Select EventType()
-			Case #PB_EventType_MouseMove
-				
+			Case #PB_EventType_LeftClick
+				If MouseY <= *data\YOffset ; Header
+					
+				ElseIf MouseX < *data\XOffset ;{ Itemlist
+					Item = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) + *data\VScrollbar_Position
+					
+					If SelectElement(*data\DisplayedItems(), Item)
+						If *data\DisplayedItems()\Type = #Item_Main
+							If MouseX < #Style_ItemList_TextOffset
+								ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\Adress)
+								
+								ToggleFold(Gadget, *data, Item)
+								
+								If *data\State <> Item
+									*data\State = Item
+									*data\VerticalMovement = #True
+									Redraw(Gadget)
+								EndIf
+							ElseIf *data\State <> Item
+								*data\State = Item
+								*data\VerticalMovement = #True
+								Redraw(Gadget)
+							EndIf
+							
+						ElseIf *data\State <> Item
+							*data\State = Item
+							*data\VerticalMovement = #True
+							Redraw(Gadget)
+						EndIf
+					Else
+						If *data\State <> Item
+							*data\State = Item
+							*data\VerticalMovement = #True
+							Redraw(Gadget)
+						EndIf
+					EndIf
+					;}
+				Else ; Timeline
+					
+				EndIf
+			Case #PB_EventType_MouseWheel ;{
+				SetGadgetState(*data\VScrollbar_ID, GetGadgetState(*data\VScrollbar_ID) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
+				Item = GetGadgetState(*data\VScrollbar_ID)
+				If Item <> *data\VScrollbar_Position
+					*data\VScrollbar_Position = Item
+					*data\VerticalMovement = #True
+					Redraw(Gadget)
+				EndIf
+				;}
+			Case #PB_EventType_KeyDown ;{
+				Key = GetGadgetAttribute(Gadget, #PB_Canvas_Key)  
+				Select Key
+					Case #PB_Shortcut_Up
+						If *data\State > 0
+							*data\State - 1
+							
+							If *data\State < *data\VScrollbar_Position
+								*data\VScrollbar_Position = *data\State
+								SetGadgetState(*data\VScrollbar_ID, *data\VScrollbar_Position)
+							ElseIf *data\State >= *data\VScrollbar_Position + *data\VisibleItems
+								SetGadgetState(*data\VScrollbar_ID, *data\State - *data\VisibleItems + 1)
+								*data\VScrollbar_Position = GetGadgetState(*data\VScrollbar_ID)
+							EndIf
+							
+							*data\VerticalMovement = #True
+							Redraw(Gadget)
+						EndIf
+					Case #PB_Shortcut_Down
+						If *data\State < ListSize(*data\DisplayedItems()) - 1 
+							*data\State + 1
+							
+							If *data\State >= *data\VScrollbar_Position + *data\VisibleItems
+								SetGadgetState(*data\VScrollbar_ID, *data\State - *data\VisibleItems + 1)
+								*data\VScrollbar_Position = GetGadgetState(*data\VScrollbar_ID)
+							ElseIf *data\State < *data\VScrollbar_Position
+								*data\VScrollbar_Position = *data\State
+								SetGadgetState(*data\VScrollbar_ID, *data\VScrollbar_Position)
+							EndIf
+							
+							*data\VerticalMovement = #True
+							Redraw(Gadget)
+							
+						EndIf
+					Case #PB_Shortcut_Space
+						SelectElement(*data\DisplayedItems(), *data\State)
+						If *data\DisplayedItems()\Type = #Item_Main
+							ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\Adress)
+							ToggleFold(Gadget, *data, *data\State)
+						EndIf
+				EndSelect
+				;}
 		EndSelect
+	EndProcedure
+	
+	Procedure ToggleFold(Gadget, *data.GadgetData, Item)
+		If *data\Items()\Folded = #Folded
+			*data\Items()\Folded = #Unfolded
+			ForEach *data\Items()\SubItems()
+				AddElement(*data\DisplayedItems())
+				*data\DisplayedItems()\Type = #Item_Sub
+				*data\DisplayedItems()\Adress = @*data\Items()\SubItems()
+				*data\DisplayedItems()\ParentAdress = @*data\Items()
+				*data\DisplayedItems()\Name = *data\Items()\SubItems()\Name
+				*data\DisplayedItems()\YOffset = #Style_ItemList_SubTextOffset
+			Next
+			
+			SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
+			
+			*data\State = Item
+			*data\VerticalMovement = #True
+			
+			If (ListSize(*data\DisplayedItems()) > *data\VisibleItems) And Not *Data\VScrollbar_Visible
+				Refit(Gadget)
+			Else
+				Redraw(Gadget)
+			EndIf
+		ElseIf *data\Items()\Folded = #Unfolded
+			*data\Items()\Folded = #Folded
+			
+			While NextElement(*data\DisplayedItems())
+				If *data\DisplayedItems()\Type = #Item_Sub
+					DeleteElement(*data\DisplayedItems())
+				Else
+					Break
+				EndIf
+			Wend
+			
+			SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
+			
+			*data\State = Item
+			*data\VerticalMovement = #True
+			
+			If (ListSize(*data\DisplayedItems()) <= *data\VisibleItems) And *Data\VScrollbar_Visible
+				Refit(Gadget)
+			Else
+				*data\VScrollbar_Position = GetGadgetState(*data\VScrollbar_ID)
+				Redraw(Gadget)
+			EndIf
+		EndIf
 	EndProcedure
 	
 	Procedure HandlerVScrollbar()
@@ -504,7 +662,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 441
-; FirstLine = 303
-; Folding = -wPX+
+; CursorPosition = 396
+; FirstLine = 185
+; Folding = PwOHl
 ; EnableXP

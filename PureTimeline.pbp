@@ -8,20 +8,20 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-09 14:04" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-10 03:41" user="poshu" host="MINIMONSTRO"/>
   </section>
   <section name="files">
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="89790caa330d9de7b89f596c50d1be22"/>
-    </file>
-    <file name="PureTimeline.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="356189c7a30e6285fda5560641bbb421"/>
+      <fingerprint md5="851dbe6827ca5181cf5c4a3ccd8ccd14"/>
     </file>
     <file name="MaterialVector\MaterialVector.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
       <fingerprint md5="e1eacf9aa914b0dc3144af7ca1bde010"/>
+    </file>
+    <file name="PureTimeline.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
+      <fingerprint md5="7630b954a331cda6deb1a127bc9dcec6"/>
     </file>
   </section>
   <section name="targets">

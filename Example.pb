@@ -13,14 +13,13 @@ PureTL::AddItem(0, "Item 8", -1)
 PureTL::AddItem(0, "Item 9", -1)
 PureTL::AddItem(0, "Item 10", -1)
 PureTL::AddItem(0, "Item 11", -1)
-PureTL::AddSubItem(0, 2, "Testouille", -1)
-PureTL::AddSubItem(0, 2, "Testouille", -1)
-PureTL::AddSubItem(0, 5, "Testouille", -1)
-
+PureTL::AddSubItem(0, 2, "Testouille 1", -1)
+PureTL::AddSubItem(0, 2, "Testouille 2", -1)
+PureTL::AddSubItem(0, 5, "Testouille 3", -1)
 
 Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 14
+; CursorPosition = 18
 ; EnableXP
