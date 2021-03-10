@@ -8,12 +8,12 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-10 14:25" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-10 17:51" user="poshu" host="MINIMONSTRO"/>
   </section>
   <section name="files">
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="851dbe6827ca5181cf5c4a3ccd8ccd14"/>
+      <fingerprint md5="86ed24c3c39db795c515702ddd904715"/>
     </file>
     <file name="MaterialVector\MaterialVector.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
@@ -21,13 +21,14 @@
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="7630b954a331cda6deb1a127bc9dcec6"/>
+      <fingerprint md5="76d3bb4b4dba73f6685a8c71a2921311"/>
     </file>
   </section>
   <section name="targets">
     <target name="Default Target" enabled="1" default="1">
       <inputfile value="Example.pb"/>
       <outputfile value="PureTimeline Example.exe"/>
+      <executable value="PureTimeline Example.exe"/>
       <options xpskin="1" debug="1"/>
     </target>
   </section>

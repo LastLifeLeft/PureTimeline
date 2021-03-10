@@ -74,6 +74,7 @@ Module PureTL
 		HorizontalMovement.b
 		ItemList_Width.i
 		State.i
+		Duration.i
 		
 		;Redraw
 		Frozen.b
@@ -100,7 +101,7 @@ Module PureTL
 	#Style_ItemList_Width = 240
 	#Style_ItemList_ItemHeight = 38
 	
-	#Style_ItemList_FoldOffset = 9
+	#Style_ItemList_FoldOffset = 18
 	#Style_ItemList_FoldSize = 12
 	#Style_ItemList_TextOffset = #Style_ItemList_FoldSize + #Style_ItemList_FoldOffset + 8
 	#Style_ItemList_SubTextOffset = #Style_ItemList_TextOffset + 12
@@ -211,7 +212,7 @@ Module PureTL
 		
 		*data\DisplayedItems()\Name = *data\Items()\Name
 		*data\DisplayedItems()\Adress = @*data\Items()
-		*data\DisplayedItems()\YOffset = *data\Border + #Style_ItemList_FoldOffset
+		*data\DisplayedItems()\YOffset = *data\Border + #Style_ItemList_FoldOffset + 2
 		
 		SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
 		
@@ -333,7 +334,11 @@ Module PureTL
 					YPos = Loop * #Style_ItemList_ItemHeight + *data\YOffset
 					
 					If ListIndex(*data\DisplayedItems()) = *data\State
-						AddPathBox(*data\Border, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight)
+						If *data\DisplayedItems()\Type = #Item_Main
+							MaterialVector::AddPathRoundedBox(*data\Border + #Style_ItemList_FoldOffset - 8, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight, 6)
+						Else
+							MaterialVector::AddPathRoundedBox(*data\Border + #Style_ItemList_SubTextOffset - 8, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight, 6)
+						EndIf
 						VectorSourceColor(Color_ItemList_BackColorHot)
 						FillPath()
 						CurrentColor = Color_ItemList_FrontColorHot
@@ -420,7 +425,15 @@ Module PureTL
 		Protected Item, Key
 		
 		Select EventType()
-			Case #PB_EventType_LeftClick
+			Case #PB_EventType_LeftDoubleClick
+				If MouseY >= *data\YOffset And MouseX < *data\XOffset
+					Item = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) + *data\VScrollbar_Position
+					If SelectElement(*data\DisplayedItems(), Item)
+						ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\Adress)
+						ToggleFold(Gadget, *data, Item)
+					EndIf
+				EndIf
+			Case #PB_EventType_LeftButtonDown
 				If MouseY <= *data\YOffset ; Header
 					
 				ElseIf MouseX < *data\XOffset ;{ Itemlist
@@ -662,7 +675,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 396
-; FirstLine = 185
+; CursorPosition = 339
+; FirstLine = 151
 ; Folding = PwOHl
 ; EnableXP
