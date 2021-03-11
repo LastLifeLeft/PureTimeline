@@ -82,9 +82,10 @@ Module PureTL
 		XOffset.i
 		Body_Height.i
 		Body_Width.i
-		Body_UnitWidth.i
+		Body_ColumnWidth.i
 		FontID.i
 		Font.i
+		FontSize.i
 		VisibleItems.i							;current maximum number of displayable item. Will change when resizing or showing/hiding the header
 		VisibleUnits.i							;current  maximum number of displayable time unit. Will change when resizing or zooming.
 		List DisplayedItems.DisplayedItem()
@@ -94,37 +95,43 @@ Module PureTL
 		
 	EndStructure
 	
-	Global DefaultFont = LoadFont(#PB_Any, "Calibri", 12, #PB_Font_HighQuality)
+	
 	
 	;Style
 	#Style_HeaderHeight = 50
 	#Style_BorderThickness = 1
 	
 	#Style_ItemList_Width = 240
-	#Style_ItemList_ItemHeight = 38
+	#Style_ItemList_ItemHeight = 58
 	
-	#Style_ItemList_FoldOffset = 18
+	#Style_ItemList_FoldOffset = 24
 	#Style_ItemList_FoldSize = 12
 	#Style_ItemList_TextOffset = #Style_ItemList_FoldSize + #Style_ItemList_FoldOffset + 8
 	#Style_ItemList_SubTextOffset = #Style_ItemList_TextOffset + 12
 	
 	#Style_ItemList_FoldVOffset = (#Style_ItemList_ItemHeight - #Style_ItemList_FoldSize) / 2
 	#Style_ItemList_TextVOffset = (#Style_ItemList_ItemHeight - 20) / 2
+	#Style_ItemList_FontSize	= 20
 	
-	#Style_VectorText = #False ; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text... Though drawing twice on the same canvas provokes the occasional flikering.
+	#Style_VectorText = #True ; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text... Though drawing twice on the same canvas provokes the occasional flikering.
 	
-	#Style_Body_DefaultUnitWidth = 5
-	#Style_Body_Margin = 2																					; Number of empty unit placed at the start and the end of the timeline, making the gadget thing more legible.
+	#Style_Body_DefaultUnitWidth = 15
+	#Style_Body_Margin = 2																					; Number of empty column placed at the start and the end of the timeline, making the gadget more legible.
+	
+	Global DefaultFont = LoadFont(#PB_Any, "Calibri", #Style_ItemList_FontSize, #PB_Font_HighQuality)
 	
 	;Colors
 	Global Color_Border = RGBA(16,16,16,255)
-	Global Color_BackColor = RGBA(54,57,63,255)
+	
+	Global Color_Body_BackColor = RGBA(54,57,63,255)
+	Global Color_Body_BackColorHot = RGBA(64, 68, 76, 255)
 	
 	Global Color_ItemList_BackColor = RGBA(47,49,54,255)
 	Global Color_ItemList_FrontColor = RGBA(142,146,151,255)
-	
 	Global Color_ItemList_BackColorHot = RGBA(57,60,67,255)
 	Global Color_ItemList_FrontColorHot = RGBA(255,255,255,255)
+	
+	
 	
 	;Icons
 	
@@ -160,7 +167,7 @@ Module PureTL
 			
 			*data\ItemList_Width = #Style_ItemList_Width
 			*data\YOffset = *data\Border + *data\Header * #Style_HeaderHeight
-			*data\Body_UnitWidth = #Style_Body_DefaultUnitWidth
+			*data\Body_ColumnWidth = #Style_Body_DefaultUnitWidth
 			
 			*data\State = -1
 			*data\Duration = 120
@@ -180,6 +187,7 @@ Module PureTL
 			
 			*data\FontID = FontID(DefaultFont)
 			*data\Font = DefaultFont
+			*data\FontSize = #Style_ItemList_FontSize
 			
 			CloseGadgetList()
 			
@@ -301,15 +309,16 @@ Module PureTL
 	Procedure Redraw(Gadget, CompleteRedraw = #False)
 		;Ugly code is uglyyyyyy~. First place to refactor once everything is in.
 		Protected *data.GadgetData = GetGadgetData(Gadget)
-		Protected YPos, Loop, LineCount, Height
+		Protected YPos, Loop, LineCount, ColumnCount, Height, Width
 		Protected CurrentColor = Color_ItemList_FrontColor
+		Protected HotItemDisplayPosition = - 1
 		
 		If *data\Frozen
 			ProcedureReturn #False
 		EndIf
 		
 		StartVectorDrawing(CanvasVectorOutput(Gadget))
-		VectorFont(*data\FontID)
+		VectorFont(*data\FontID, *data\FontSize)
 		
 		;{ Header
 		If *data\HorizontalMovement Or CompleteRedraw
@@ -335,10 +344,13 @@ Module PureTL
 					YPos = Loop * #Style_ItemList_ItemHeight + *data\YOffset
 					
 					If ListIndex(*data\DisplayedItems()) = *data\State
+						
+						HotItemDisplayPosition = YPos
+						
 						If *data\DisplayedItems()\Type = #Item_Main
-							MaterialVector::AddPathRoundedBox(*data\Border + #Style_ItemList_FoldOffset - 8, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight, 6)
+							MaterialVector::AddPathRoundedBox(*data\Border + #Style_ItemList_FoldOffset - 8, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight - 1, 6)
 						Else
-							MaterialVector::AddPathRoundedBox(*data\Border + #Style_ItemList_SubTextOffset - 8, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight, 6)
+							MaterialVector::AddPathRoundedBox(*data\Border + #Style_ItemList_SubTextOffset - 8, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight - 1, 6)
 						EndIf
 						VectorSourceColor(Color_ItemList_BackColorHot)
 						FillPath()
@@ -346,6 +358,8 @@ Module PureTL
 					Else
 						CurrentColor = Color_ItemList_FrontColor
 					EndIf
+					
+					VectorSourceColor(CurrentColor)
 					
 					If *data\DisplayedItems()\Type = #Item_Main
 						ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\Adress)
@@ -371,29 +385,41 @@ Module PureTL
 		
 		;{ Body
 		AddPathBox(*data\XOffset, *data\YOffset, *data\Body_Width, *data\Body_Height)
-		VectorSourceColor(Color_BackColor)
+		VectorSourceColor(Color_Body_BackColor)
 		FillPath()
 		
-		LineCount = Loop
-		For Loop = 0 To LineCount
-			MovePathCursor(*data\XOffset, *data\YOffset + (Loop + 1) * #Style_ItemList_ItemHeight)
-			AddPathLine(*data\Body_Width, 0, #PB_Path_Relative)
-		Next
-		
-		Height = (LineCount + 1) * #Style_ItemList_ItemHeight
-		
-		If (*data\Duration +  #Style_Body_Margin) < *Data\VisibleUnits
-			LineCount = *data\Duration
-		Else
-			LineCount = *Data\VisibleUnits
+		If HotItemDisplayPosition > -1
+			AddPathBox(*data\XOffset, HotItemDisplayPosition, *data\Body_Width, #Style_ItemList_ItemHeight)
+			VectorSourceColor(Color_Body_BackColorHot)
+			FillPath()
 		EndIf
 		
+		LineCount = Loop
+		
+		If (*data\Duration + #Style_Body_Margin) <= *Data\VisibleUnits
+			ColumnCount = *data\Duration
+		Else
+			ColumnCount = *Data\VisibleUnits + #Style_Body_Margin+ 1
+		EndIf
+		
+		Width = ColumnCount * *data\Body_ColumnWidth
+		
 		For Loop = 0 To LineCount
-			MovePathCursor(*data\XOffset + (2 + Loop) * *data\Body_UnitWidth, *data\YOffset)
-			AddPathLine(0, Height, #PB_Path_Relative)
+			MovePathCursor(*data\XOffset, *data\YOffset + (Loop + 1) * #Style_ItemList_ItemHeight - 0.5)
+			AddPathLine(Width, 0, #PB_Path_Relative)
 		Next
 		
-		VectorSourceColor(RGBA(240, 240, 240, 255))
+		Height = (LineCount + 1) * #Style_ItemList_ItemHeight - 1
+		
+		MovePathCursor(*data\XOffset + Width - 0.5, *data\YOffset +1)
+		AddPathLine(0, Height, #PB_Path_Relative)
+		
+; 		For Loop = 0 To ColumnCount
+; 			MovePathCursor(*data\XOffset + (2 + Loop) * *data\Body_ColumnWidth - 0.5, *data\YOffset +1)
+; 			AddPathLine(0, Height, #PB_Path_Relative)
+; 		Next
+		
+		VectorSourceColor(Color_Border)
 		StrokePath(1)
 		
 		If *data\VScrollbar_Visible And *data\HScrollbar_Visible
@@ -645,7 +671,7 @@ Module PureTL
 		EndIf
 		
 		*data\Body_Width = Width - *data\ItemList_Width - 2 * *data\Border - *data\VScrollbar_Width * *data\VScrollbar_Visible
-		*data\VisibleUnits = Round(*data\Body_Width / *Data\Body_UnitWidth, #PB_Round_Down)
+		*data\VisibleUnits = Round(*data\Body_Width / *Data\Body_ColumnWidth, #PB_Round_Down)
 		
 		If *data\Duration + 2 * #Style_Body_Margin >= *data\VisibleUnits
 			*data\HScrollbar_Visible = #True
@@ -719,7 +745,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 382
-; FirstLine = 150
-; Folding = PwcFx
+; CursorPosition = 358
+; FirstLine = 220
+; Folding = fweFh
 ; EnableXP
