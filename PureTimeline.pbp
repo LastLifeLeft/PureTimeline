@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-11 13:53" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-11 21:03" user="poshu" host="MINIMONSTRO"/>
   </section>
   <section name="files">
     <file name="Example.pb">
@@ -21,7 +21,7 @@
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="c9d01bd49db3d025b6c564b85525df8b"/>
+      <fingerprint md5="17af0476fdb92d19bfcd36384d1ce9e5"/>
     </file>
   </section>
   <section name="targets">
