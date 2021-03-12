@@ -271,17 +271,29 @@ Module PureTL
 				                                                 #Style_Header_ButtonSize,
 				                                                 MaterialVector::#Skip,
 				                                                 CanvasButton::#MaterialVectorIcon | Theme | MaterialVector::#style_rotate_180)
+				CanvasButton::SetColor(*data\ButtonStart_ID, CanvasButton::#ColorType_BackCold, *data\Color_ItemList_Back)
+				CanvasButton::SetColor(*data\ButtonStart_ID, CanvasButton::#ColorType_BackWarm, *data\Color_ItemList_Back)
+				CanvasButton::SetColor(*data\ButtonStart_ID, CanvasButton::#ColorType_BackHot, *data\Color_ItemList_Back)
+				
 				*data\ButtonPlay_ID = CanvasButton::GadgetImage(#PB_Any, (#Style_ItemList_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5 + #Style_Header_ButtonSize + #Style_Header_ButtonSpace,
 				                                                (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5,
 				                                                #Style_Header_ButtonSize,
 				                                                #Style_Header_ButtonSize,
 				                                                MaterialVector::#Play,
 				                                                CanvasButton::#MaterialVectorIcon | Theme)
+				CanvasButton::SetColor(*data\ButtonPlay_ID, CanvasButton::#ColorType_BackCold, *data\Color_ItemList_Back)
+				CanvasButton::SetColor(*data\ButtonPlay_ID, CanvasButton::#ColorType_BackWarm, *data\Color_ItemList_Back)
+				CanvasButton::SetColor(*data\ButtonPlay_ID, CanvasButton::#ColorType_BackHot, *data\Color_ItemList_Back)
+				
 				*data\ButtonEnd_ID = CanvasButton::GadgetImage(#PB_Any, (#Style_ItemList_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5 + (#Style_Header_ButtonSize + #Style_Header_ButtonSpace) * 2, (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5,
 				                                               #Style_Header_ButtonSize,
 				                                               #Style_Header_ButtonSize,
 				                                               MaterialVector::#Skip,
 				                                               CanvasButton::#MaterialVectorIcon | Theme)
+				
+				CanvasButton::SetColor(*data\ButtonEnd_ID, CanvasButton::#ColorType_BackCold, *data\Color_ItemList_Back)
+				CanvasButton::SetColor(*data\ButtonEnd_ID, CanvasButton::#ColorType_BackWarm, *data\Color_ItemList_Back)
+				CanvasButton::SetColor(*data\ButtonEnd_ID, CanvasButton::#ColorType_BackHot, *data\Color_ItemList_Back)
 			EndIf
 			
 			
@@ -847,7 +859,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 140
-; FirstLine = 104
+; CursorPosition = 292
+; FirstLine = 194
 ; Folding = fB+75
 ; EnableXP
