@@ -18,18 +18,18 @@ DeclareModule PureTL
 	EndEnumeration
 	
 	Enumeration ;Content Type
-		#Contant_Media
-		#Contant_DataPoints
+		#Content_Media
+		#Content_DataPoints
 	EndEnumeration
 	
 	#DefaultDuration = 119
 	
 	; Public procedures declaration
 	Declare Gadget(Gadget, X, Y, Width, Height, Flags = #False)
-	Declare AddItem(Gadget, Name.s, Position)
-	Declare AddSubItem(Gadget, Item, Name.s, Position)
-	Declare RemoveItem(Gadget)
-	Declare SetDuration(Gadget)
+	Declare AddItem(Gadget, Name.s, Position, ContentType)
+	Declare AddSubItem(Gadget, Item, Name.s, Position, ContentType)
+	Declare RemoveItem(Gadget, Item)
+	Declare SetDuration(Gadget, Duration)
 	Declare Freeze(Gadget, State) ;Disable the redrawing of the gadget (Should be used before a large amount is done to avoid CPU consumption spike)
 	Declare Resize(Gadget, x, y, Width, Height)
 	
@@ -332,7 +332,7 @@ Module PureTL
 		ProcedureReturn Result
 	EndProcedure
 	
-	Procedure AddItem(Gadget, Name.s, Position)
+	Procedure AddItem(Gadget, Name.s, Position, ContentType)
 		Protected *data.GadgetData = GetGadgetData(Gadget)
 		
 		If Position = -1 Or Position >= ListSize(*data\Items())
@@ -365,7 +365,7 @@ Module PureTL
 		EndIf
 	EndProcedure
 	
-	Procedure AddSubItem(Gadget, Item, Name.s, Position)
+	Procedure AddSubItem(Gadget, Item, Name.s, Position, ContentType)
 		Protected *data.GadgetData = GetGadgetData(Gadget)
 		If Item < ListSize(*data\Items())
 			SelectElement(*data\Items(), Item)
@@ -414,10 +414,27 @@ Module PureTL
 		EndIf
 	EndProcedure
 	
-	Procedure RemoveItem(Gadget)
+	Procedure RemoveItem(Gadget, Item)
+		Protected *data.GadgetData = GetGadgetData(Gadget)
 	EndProcedure
 	
-	Procedure SetDuration(Gadget)
+	Procedure SetDuration(Gadget, Duration)
+		Protected *data.GadgetData = GetGadgetData(Gadget)
+		
+		*data\Duration = Duration
+		
+		ForEach *data\Items()
+			If *data\Items()\Folded
+				ForEach *data\Items()\SubItems()
+					ReDim *data\Items()\SubItems()\ContentArray(Duration)
+				Next
+			EndIf
+			
+			ReDim *data\Items()\ContentArray(Duration)
+		Next
+		
+		SetGadgetAttribute(*data\HScrollbar_ID, #PB_ScrollBar_Maximum, *data\Duration + #Style_Body_Margin)
+		Refit(Gadget)
 	EndProcedure
 	
 	Procedure Freeze(Gadget, State)
@@ -859,7 +876,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 292
-; FirstLine = 194
-; Folding = fB+75
+; CursorPosition = 25
+; FirstLine = 4
+; Folding = fZ97x
 ; EnableXP
