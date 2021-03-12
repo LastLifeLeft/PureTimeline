@@ -17,6 +17,13 @@ DeclareModule PureTL
 		#Border
 	EndEnumeration
 	
+	Enumeration ;Content Type
+		#Contant_Media
+		#Contant_DataPoints
+	EndEnumeration
+	
+	#DefaultDuration = 119
+	
 	; Public procedures declaration
 	Declare Gadget(Gadget, X, Y, Width, Height, Flags = #False)
 	Declare AddItem(Gadget, Name.s, Position)
@@ -42,15 +49,22 @@ Module PureTL
 		#Unfolded
 	EndEnumeration
 	
+	Structure Content
+		Color.l
+	EndStructure
+	
 	Structure SubItem
 		Name.s
+		ContentType.b
+		Array ContentArray.Content(#DefaultDuration)
 	EndStructure
 	
 	Structure Item
 		Name.s
 		Folded.b
-		
 		List SubItems.SubItem()
+		ContentType.b
+		Array ContentArray.Content(#DefaultDuration)
 	EndStructure
 	
 	Structure DisplayedItem
@@ -79,6 +93,10 @@ Module PureTL
 		HScrollbar_Page.i
 		HScrollbar_Position.i
 		
+		ButtonPlay_ID.i
+		ButtonEnd_ID.i
+		ButtonStart_ID.i
+		
 		;state
 		ItemListUpdate.b
 		HorizontalMovement.b
@@ -97,7 +115,7 @@ Module PureTL
 		Font.i
 		FontSize.i
 		VisibleItems.i							;current maximum number of displayable item. Will change when resizing or showing/hiding the header
-		VisibleUnits.i							;current  maximum number of displayable time unit. Will change when resizing or zooming.
+		VisibleColumns.i						;current  maximum number of displayable time unit. Will change when resizing or zooming.
 			
 		Color_Border.i
 		
@@ -118,7 +136,9 @@ Module PureTL
 	EndStructure
 	
 	;Style
-	#Style_HeaderHeight = 50
+	#Style_Header_Height = 60
+	#Style_Header_ButtonSize = 30
+	#Style_Header_ButtonSpace = 20
 	#Style_BorderThickness = 1
 	
 	#Style_ItemList_Width = 240
@@ -205,7 +225,7 @@ Module PureTL
 	
 	; Public procedures
 	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #False)
-		Protected Result.i, *data.GadgetData
+		Protected Result.i, *data.GadgetData, Theme
 		Result = CanvasGadget(Gadget, X, Y, Width, Height, #PB_Canvas_Container | #PB_Canvas_Keyboard)
 		
 		If Result
@@ -226,6 +246,8 @@ Module PureTL
 				*data\Color_ItemList_Front = #Color_ItemList_Dark_Front
 				*data\Color_ItemList_BackHot = #Color_ItemList_Dark_BackHot
 				*data\Color_ItemList_FrontHot = #Color_ItemList_Dark_FrontHot
+				
+				Theme = CanvasButton::#DarkTheme
 			Else
 				*data\Color_Body_Back = #Color_Body_Light_Back
 				*data\Color_Body_BackAlt = #Color_Body_Light_BackAlt
@@ -235,17 +257,40 @@ Module PureTL
 				*data\Color_ItemList_Front = #Color_ItemList_Light_Front
 				*data\Color_ItemList_BackHot = #Color_ItemList_Light_BackHot
 				*data\Color_ItemList_FrontHot = #Color_ItemList_Light_FrontHot
+				
+				Theme = CanvasButton::#LightTheme
 			EndIf
 			
 			*data\Border = Bool(Flags & #Border) * #Style_BorderThickness
 			*data\Header = Bool(Flags & #Header)
 			
+			If *data\Header
+				*data\ButtonStart_ID = CanvasButton::GadgetImage(#PB_Any,
+				                                                 (#Style_ItemList_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5, (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5,
+				                                                 #Style_Header_ButtonSize,
+				                                                 #Style_Header_ButtonSize,
+				                                                 MaterialVector::#Skip,
+				                                                 CanvasButton::#MaterialVectorIcon | Theme | MaterialVector::#style_rotate_180)
+				*data\ButtonPlay_ID = CanvasButton::GadgetImage(#PB_Any, (#Style_ItemList_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5 + #Style_Header_ButtonSize + #Style_Header_ButtonSpace,
+				                                                (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5,
+				                                                #Style_Header_ButtonSize,
+				                                                #Style_Header_ButtonSize,
+				                                                MaterialVector::#Play,
+				                                                CanvasButton::#MaterialVectorIcon | Theme)
+				*data\ButtonEnd_ID = CanvasButton::GadgetImage(#PB_Any, (#Style_ItemList_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5 + (#Style_Header_ButtonSize + #Style_Header_ButtonSpace) * 2, (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5,
+				                                               #Style_Header_ButtonSize,
+				                                               #Style_Header_ButtonSize,
+				                                               MaterialVector::#Skip,
+				                                               CanvasButton::#MaterialVectorIcon | Theme)
+			EndIf
+			
+			
 			*data\ItemList_Width = #Style_ItemList_Width
-			*data\YOffset = *data\Border + *data\Header * #Style_HeaderHeight
+			*data\YOffset = *data\Border + *data\Header * #Style_Header_Height
 			*data\Body_ColumnWidth = #Style_Body_DefaultUnitWidth
 			
 			*data\State = -1
-			*data\Duration = 120
+			*data\Duration = #DefaultDuration
 			
 			*data\VScrollbar_ID = ScrollBarGadget(#PB_Any, 0, *data\YOffset, 20, *data\Body_Height, 0, 10, 10,   #PB_ScrollBar_Vertical)
 			BindGadgetEvent(*data\VScrollbar_ID, @HandlerVScrollbar())
@@ -396,6 +441,9 @@ Module PureTL
 		;{ Header
 		If *data\HorizontalMovement Or CompleteRedraw
 			; Redraw the header
+			AddPathBox(*data\Border, *data\Border, *data\ItemList_Width, #Style_Header_Height)
+			VectorSourceColor(*data\Color_ItemList_Back)
+			FillPath()
 			*data\HorizontalMovement = #False
 		EndIf
 		;}
@@ -724,11 +772,11 @@ Module PureTL
 		EndIf
 		
 		*data\Body_Width = Width - *data\ItemList_Width - 2 * *data\Border - *data\VScrollbar_Width * *data\VScrollbar_Visible
-		*data\VisibleUnits = Round(*data\Body_Width / *Data\Body_ColumnWidth, #PB_Round_Down)
+		*data\VisibleColumns = Round(*data\Body_Width / *Data\Body_ColumnWidth, #PB_Round_Down)
 		
-		If *data\Duration + 2 * #Style_Body_Margin >= *data\VisibleUnits
+		If *data\Duration + 2 * #Style_Body_Margin >= *data\VisibleColumns
 			*data\HScrollbar_Visible = #True
-			SetGadgetAttribute(*data\HScrollbar_ID, #PB_ScrollBar_PageLength, *data\VisibleUnits)
+			SetGadgetAttribute(*data\HScrollbar_ID, #PB_ScrollBar_PageLength, *data\VisibleColumns)
 			*data\HScrollbar_Position = GetGadgetState(*data\HScrollbar_ID)
 		Else
 			*data\HScrollbar_Visible = #False
@@ -799,7 +847,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 467
-; FirstLine = 255
-; Folding = fE77w
+; CursorPosition = 140
+; FirstLine = 104
+; Folding = fB+75
 ; EnableXP
