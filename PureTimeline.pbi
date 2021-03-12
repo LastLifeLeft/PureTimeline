@@ -2,6 +2,10 @@
 	IncludeFile "MaterialVector\MaterialVector.pbi"
 CompilerEndIf
 
+CompilerIf Not Defined(CanvasButton,#PB_Module)
+	IncludeFile "CanvasButton\CanvasButton.pbi"
+CompilerEndIf
+
 DeclareModule PureTL
 	; Public variables, structures, constants...
 	#Header = 2
@@ -753,7 +757,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 416
-; FirstLine = 305
-; Folding = fweFh
+; CursorPosition = 12
+; Folding = -g0KC-
 ; EnableXP
