@@ -8,8 +8,14 @@ CompilerEndIf
 
 DeclareModule PureTL
 	; Public variables, structures, constants...
-	#Header = 2
-	#Border = 4
+	EnumerationBinary ;Flags
+		#Default = 0
+		#LightTheme = 0
+		
+		#DarkTheme
+		#Header
+		#Border
+	EndEnumeration
 	
 	; Public procedures declaration
 	Declare Gadget(Gadget, X, Y, Width, Height, Flags = #False)
@@ -92,6 +98,18 @@ Module PureTL
 		FontSize.i
 		VisibleItems.i							;current maximum number of displayable item. Will change when resizing or showing/hiding the header
 		VisibleUnits.i							;current  maximum number of displayable time unit. Will change when resizing or zooming.
+			
+		Color_Border.i
+		
+		Color_Body_Back.i
+		Color_Body_BackAlt.i
+		Color_Body_BackHot.i
+		
+		Color_ItemList_Back.i
+		Color_ItemList_Front.i
+		Color_ItemList_BackHot.i
+		Color_ItemList_FrontHot.i
+		
 		List DisplayedItems.DisplayedItem()
 		
 		;Items
@@ -123,19 +141,50 @@ Module PureTL
 	Global DefaultFont = LoadFont(#PB_Any, "Bebas Neue", #Style_ItemList_FontSize, #PB_Font_HighQuality)
 	
 	;Colors
-	Global Color_Border = RGBA(16,16,16,255)
-	
-	Global Color_Body_BackColor = RGBA(50,53,57,255)
-	Global Color_Body_BackColorHot = RGBA(60, 64, 70, 255)
-	Global Color_Body_BackColorAlt = RGBA(54, 57, 63, 255)
-	Global Color_Body_BackColorHotAlt = RGBA(64, 68, 76, 255)
-	
-	Global Color_ItemList_BackColor = RGBA(47,49,54,255)
-	Global Color_ItemList_FrontColor = RGBA(142,146,151,255)
-	Global Color_ItemList_BackColorHot = RGBA(57,60,67,255)
-	Global Color_ItemList_FrontColorHot = RGBA(255,255,255,255)
-	
-	
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows ; RGB/GBR switcharoo...
+		#Color_Border = $FF101010
+		
+		#Color_ItemList_Dark_Back = $FF36312F
+		#Color_ItemList_Dark_BackHot = $FF433C39
+		#Color_ItemList_Dark_Front = $FF97928E
+		#Color_ItemList_Dark_FrontHot = $FFFFFFFF
+		
+		#Color_ItemList_Light_Back = $FFF5F3F2
+		#Color_ItemList_Light_BackHot = $FFDCD7D4
+		#Color_ItemList_Light_Front = $FF80746A
+		#Color_ItemList_Light_FrontHot = $FF070606
+		
+		#Color_Body_Dark_Back    = $FF393532
+		#Color_Body_Dark_BackAlt = $FF3F3936
+		#Color_Body_Dark_BackHot = $FF46403C
+		
+		#Color_Body_Light_Back    = $FFF3EDEA
+		#Color_Body_Light_BackAlt = $FFE9E3E0
+		#Color_Body_Light_BackHot = $FFDCD7D4
+		
+		
+	CompilerElse
+		#Color_Border = $101010FF
+		
+		#Color_ItemList_Dark_Back = $2F3136FF
+		#Color_ItemList_Dark_BackHot = $393C43FF
+		#Color_ItemList_Dark_Front = $8E9297FF
+		#Color_ItemList_Dark_FrontHot = $FFFFFFFF
+		
+		#Color_ItemList_Light_Back = $F2F3F5FF
+		#Color_ItemList_Light_BackHot = $D4D7DCFF
+		#Color_ItemList_Light_Front = $6A7480FF
+		#Color_ItemList_Light_FrontHot = $060607FF
+		
+		#Color_Body_Dark_Back = $323539FF
+		#Color_Body_Dark_BackAlt = $36393FFF
+		#Color_Body_Dark_BackHot = $3C4046FF
+		
+		#Color_Body_Light_Back    = $FFEAEDF3
+		#Color_Body_Light_BackAlt = $FFE0E3E9
+		#Color_Body_Light_BackHot = $D4D7DCFF
+		
+	CompilerEndIf
 	
 	;Icons
 	
@@ -165,6 +214,28 @@ Module PureTL
 			EndIf
 			
 			*data = AllocateStructure(GadgetData)
+			
+			*data\Color_Border = #Color_Border
+			
+			If Flags & #DarkTheme
+				*data\Color_Body_Back = #Color_Body_Dark_Back
+				*data\Color_Body_BackAlt = #Color_Body_Dark_BackAlt
+				*data\Color_Body_BackHot = #Color_Body_Dark_BackHot
+				
+				*data\Color_ItemList_Back = #Color_ItemList_Dark_Back
+				*data\Color_ItemList_Front = #Color_ItemList_Dark_Front
+				*data\Color_ItemList_BackHot = #Color_ItemList_Dark_BackHot
+				*data\Color_ItemList_FrontHot = #Color_ItemList_Dark_FrontHot
+			Else
+				*data\Color_Body_Back = #Color_Body_Light_Back
+				*data\Color_Body_BackAlt = #Color_Body_Light_BackAlt
+				*data\Color_Body_BackHot = #Color_Body_Light_BackHot
+				
+				*data\Color_ItemList_Back = #Color_ItemList_Light_Back
+				*data\Color_ItemList_Front = #Color_ItemList_Light_Front
+				*data\Color_ItemList_BackHot = #Color_ItemList_Light_BackHot
+				*data\Color_ItemList_FrontHot = #Color_ItemList_Light_FrontHot
+			EndIf
 			
 			*data\Border = Bool(Flags & #Border) * #Style_BorderThickness
 			*data\Header = Bool(Flags & #Header)
@@ -314,7 +385,7 @@ Module PureTL
 		;Ugly code is uglyyyyyy~. First place to refactor once everything is in.
 		Protected *data.GadgetData = GetGadgetData(Gadget)
 		Protected YPos, Loop, LineCount, ColumnCount, Height, Width
-		Protected CurrentColor = Color_ItemList_FrontColor
+		Protected CurrentColor = *data\Color_ItemList_Front
 		Protected HotItemDisplayPosition = - 1
 		
 		If *data\Frozen
@@ -339,10 +410,10 @@ Module PureTL
 			CompilerEndIf
 
 			AddPathBox(*data\Border, *data\YOffset, *data\ItemList_Width, *data\Body_Height)
-			VectorSourceColor(Color_ItemList_BackColor)
+			VectorSourceColor(*data\Color_ItemList_Back)
 			FillPath()
 			
-			VectorSourceColor(Color_ItemList_FrontColor)
+			VectorSourceColor(*data\Color_ItemList_Front)
 			If SelectElement(*data\DisplayedItems(), *data\VScrollbar_Position)
 				For Loop = 0 To *data\VisibleItems 
 					YPos = Loop * #Style_ItemList_ItemHeight + *data\YOffset
@@ -357,11 +428,11 @@ Module PureTL
 							MaterialVector::AddPathRoundedBox(*data\Border + *data\DisplayedItems()\YOffset - 8, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight, 6)
 						EndIf
 						
-						VectorSourceColor(Color_ItemList_BackColorHot)
+						VectorSourceColor(*data\Color_ItemList_BackHot)
 						FillPath()
-						CurrentColor = Color_ItemList_FrontColorHot
+						CurrentColor = *data\Color_ItemList_FrontHot
 					Else
-						CurrentColor = Color_ItemList_FrontColor
+						CurrentColor = *data\Color_ItemList_Front
 					EndIf
 					
 					VectorSourceColor(CurrentColor)
@@ -369,9 +440,9 @@ Module PureTL
 					If *data\DisplayedItems()\Type = #Item_Main
 						ChangeCurrentElement(*data\Items(), *data\DisplayedItems()\Adress)
 						If *data\Items()\Folded = #Folded
-							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, CurrentColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_90)
+							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, CurrentColor, *data\Color_ItemList_Back, MaterialVector::#style_rotate_90)
 						ElseIf *data\Items()\Folded = #Unfolded
-							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, CurrentColor, Color_ItemList_BackColor, MaterialVector::#style_rotate_180)
+							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + #Style_ItemList_FoldOffset, YPos + #Style_ItemList_FoldVOffset, #Style_ItemList_FoldSize, CurrentColor, *data\Color_ItemList_Back, MaterialVector::#style_rotate_180)
 						EndIf
 					EndIf
 					
@@ -388,21 +459,15 @@ Module PureTL
 			
 			MovePathCursor(*data\XOffset, *data\YOffset + 1)
 			AddPathLine(0, *data\Body_Height, #PB_Path_Relative)
-			VectorSourceColor(Color_Border)
+			VectorSourceColor(*data\Color_Border)
 			StrokePath(1)
 		EndIf
 		;}
 		
 		;{ Body
 		AddPathBox(*data\XOffset, *data\YOffset, *data\Body_Width, *data\Body_Height)
-		VectorSourceColor(Color_Body_BackColor)
+		VectorSourceColor(*data\Color_Body_Back)
 		FillPath()
-; 		
-; 		If HotItemDisplayPosition > -1
-; 			AddPathBox(*data\XOffset, HotItemDisplayPosition, *data\Body_Width, #Style_ItemList_ItemHeight)
-; 			VectorSourceColor(Color_Body_BackColorHot)
-; 			FillPath()
-; 		EndIf
 		
 		LineCount = Loop
 		
@@ -420,18 +485,18 @@ Module PureTL
 			EndIf
 
 			If Loop + *data\VScrollbar_Position = *data\State
-				VectorSourceColor(Color_Body_BackColorAlt)
+				VectorSourceColor(*data\Color_Body_BackAlt)
 				FillPath()
 				
 				AddPathBox(*data\XOffset, *data\YOffset + (Loop) * #Style_ItemList_ItemHeight, *data\Body_Width, #Style_ItemList_ItemHeight)
-				VectorSourceColor(Color_Body_BackColorHot)
+				VectorSourceColor(*data\Color_Body_BackHot)
 				FillPath()
 				
 			EndIf
 			
 		Next
 		
-		VectorSourceColor(Color_Body_BackColorAlt)
+		VectorSourceColor(*data\Color_Body_BackAlt)
 		FillPath()
 		
 		If *data\VScrollbar_Visible And *data\HScrollbar_Visible
@@ -445,7 +510,7 @@ Module PureTL
 		CompilerIf #Style_VectorText
 			If *data\Border
 				AddPathBox(0, 0, VectorOutputWidth(), VectorOutputHeight())
-				VectorSourceColor(Color_Border)
+				VectorSourceColor(*data\Color_Border)
 				StrokePath(1)
 			EndIf
 		CompilerEndIf
@@ -464,9 +529,9 @@ Module PureTL
 				If SelectElement(*data\DisplayedItems(), *data\VScrollbar_Position)
 					For Loop = 0 To *data\VisibleItems
 						If ListIndex(*data\DisplayedItems()) = *data\State
-							DrawText(*data\DisplayedItems()\YOffset, Loop * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,Color_ItemList_FrontColorHot, 0)
+							DrawText(*data\DisplayedItems()\YOffset, Loop * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,*data\Color_ItemList_FrontHot, 0)
 						Else
-							DrawText(*data\DisplayedItems()\YOffset, Loop * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,Color_ItemList_FrontColor, 0)
+							DrawText(*data\DisplayedItems()\YOffset, Loop * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_TextVOffset , *data\DisplayedItems()\Name,*data\Color_ItemList_Front, 0)
 						EndIf
 						
 						If Not NextElement(*Data\DisplayedItems())
@@ -477,7 +542,7 @@ Module PureTL
 				
 				If *data\Border
 					DrawingMode(#PB_2DDrawing_Outlined)
-					Box(0, 0, OutputWidth(), OutputHeight(), Color_Border)
+					Box(0, 0, OutputWidth(), OutputHeight(), *data\Color_Border)
 				EndIf
 				
 				StopDrawing()
@@ -677,6 +742,7 @@ Module PureTL
 		If ListSize(*data\DisplayedItems()) > *data\VisibleItems
 			*data\VScrollbar_Visible = #True
 			SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_PageLength, *data\VisibleItems)
+			*data\VScrollbar_Position = GetGadgetState(*data\VScrollbar_ID)
 		Else
 			*data\VScrollbar_Visible = #False
 			*data\VScrollbar_Position = 0
@@ -688,6 +754,7 @@ Module PureTL
 		If *data\Duration + 2 * #Style_Body_Margin >= *data\VisibleUnits
 			*data\HScrollbar_Visible = #True
 			SetGadgetAttribute(*data\HScrollbar_ID, #PB_ScrollBar_PageLength, *data\VisibleUnits)
+			*data\HScrollbar_Position = GetGadgetState(*data\HScrollbar_ID)
 		Else
 			*data\HScrollbar_Visible = #False
 			*data\HScrollbar_Position = 0
@@ -757,6 +824,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 12
-; Folding = -g0KC-
+; CursorPosition = 748
+; FirstLine = 286
+; Folding = -B5fE-
 ; EnableXP
