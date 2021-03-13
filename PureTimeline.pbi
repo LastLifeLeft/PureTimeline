@@ -17,6 +17,10 @@ DeclareModule PureTL
 		#Border
 	EndEnumeration
 	
+	EnumerationBinary ; Items flags
+		#Item_AutoFill = 1
+	EndEnumeration
+	
 	Enumeration ;Content Type
 		#Content_Media
 		#Content_DataPoints
@@ -25,14 +29,15 @@ DeclareModule PureTL
 	#DefaultDuration = 119
 	
 	; Public procedures declaration
-	Declare Gadget(Gadget, X, Y, Width, Height, Flags = #False)
-	Declare AddItem(Gadget, Name.s, Position, ContentType)
-	Declare AddSubItem(Gadget, Item, Name.s, Position, ContentType)
+	Declare Gadget(Gadget, X, Y, Width, Height, Flags = #Default)
+	Declare AddItem(Gadget, Name.s, Position, Parent = -1, Flags = #Default)
 	Declare RemoveItem(Gadget, Item)
 	Declare SetDuration(Gadget, Duration)
 	Declare Freeze(Gadget, State) ;Disable the redrawing of the gadget (Should be used before a large amount is done to avoid CPU consumption spike)
 	Declare Resize(Gadget, x, y, Width, Height)
 	
+	Declare AddMediaBlock(Gadget, Item, SubItem, Start, Finish, ID, Color)
+	Declare AddDataPoint(Gadget, Item, SubItem, Position, ID, Color)
 EndDeclareModule
 
 Module PureTL
@@ -49,13 +54,26 @@ Module PureTL
 		#Unfolded
 	EndEnumeration
 	
+	Enumeration ; MediaBlock Type
+		#MediaBlock_Start
+		#MediaBlock_Body
+		#MediaBlock_End
+	EndEnumeration
+	
 	Structure Content
-		Color.l
+		MediaBlock_Color.l
+		MediaBlock_End.l
+		MediaBlock_Origin.l
+		MediaBlock_ID.i
+		
+		DataPoint.b
+		DataPoint_Color.b
+		DataPoint_Count.i
+		DataPoint_ID.i
 	EndStructure
 	
 	Structure SubItem
 		Name.s
-		ContentType.b
 		Array ContentArray.Content(#DefaultDuration)
 	EndStructure
 	
@@ -63,7 +81,6 @@ Module PureTL
 		Name.s
 		Folded.b
 		List SubItems.SubItem()
-		ContentType.b
 		Array ContentArray.Content(#DefaultDuration)
 	EndStructure
 	
@@ -114,8 +131,8 @@ Module PureTL
 		FontID.i
 		Font.i
 		FontSize.i
-		VisibleItems.i							;current maximum number of displayable item. Will change when resizing or showing/hiding the header
-		VisibleColumns.i						;current  maximum number of displayable time unit. Will change when resizing or zooming.
+		VisibleItems.i												;current maximum number of displayable item. Will change when resizing or showing/hiding the header
+		VisibleColumns.i											;current  maximum number of displayable time unit. Will change when resizing or zooming.
 			
 		Color_Border.i
 		
@@ -153,10 +170,10 @@ Module PureTL
 	#Style_ItemList_TextVOffset = (#Style_ItemList_ItemHeight - 20) / 2
 	#Style_ItemList_FontSize	= 20
 	
-	#Style_VectorText = #True ; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text... Though drawing twice on the same canvas provokes the occasional flikering.
+	#Style_VectorText = #True 										; I find the vector drawn text to impair readability too much on Windows, so we'll fallback on the classic 2D drawing for text... Though drawing twice on the same canvas provokes the occasional flikering.
 	
-	#Style_Body_DefaultUnitWidth = 15
-	#Style_Body_Margin = 2																					; Number of empty column placed at the start and the end of the timeline, making the gadget more legible.
+	#Style_Body_DefaultColumnWidth = 15
+	#Style_Body_Margin = 2											; Number of empty column placed at the start and the end of the timeline, making the gadget more legible.
 	
 	Global DefaultFont = LoadFont(#PB_Any, "Bebas Neue", #Style_ItemList_FontSize, #PB_Font_HighQuality)
 	
@@ -224,7 +241,7 @@ Module PureTL
 	Declare ToggleFold(Gadget, *data.GadgetData, Item)
 	
 	; Public procedures
-	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #False)
+	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #Default)
 		Protected Result.i, *data.GadgetData, Theme
 		Result = CanvasGadget(Gadget, X, Y, Width, Height, #PB_Canvas_Container | #PB_Canvas_Keyboard)
 		
@@ -299,7 +316,7 @@ Module PureTL
 			
 			*data\ItemList_Width = #Style_ItemList_Width
 			*data\YOffset = *data\Border + *data\Header * #Style_Header_Height
-			*data\Body_ColumnWidth = #Style_Body_DefaultUnitWidth
+			*data\Body_ColumnWidth = #Style_Body_DefaultColumnWidth
 			
 			*data\State = -1
 			*data\Duration = #DefaultDuration
@@ -332,83 +349,82 @@ Module PureTL
 		ProcedureReturn Result
 	EndProcedure
 	
-	Procedure AddItem(Gadget, Name.s, Position, ContentType)
+	Procedure AddItem(Gadget, Name.s, Position, Parent = -1, Flags = #Default)
 		Protected *data.GadgetData = GetGadgetData(Gadget)
 		
-		If Position = -1 Or Position >= ListSize(*data\Items())
-			LastElement(*data\Items())
-			AddElement(*data\Items())
-			LastElement(*data\DisplayedItems())
-			AddElement(*data\DisplayedItems())
-		Else
-			SelectElement(*data\Items(), Position)
-			SearchDisplayedItem(*data, @*data\Items())
-			InsertElement(*data\Items())
-			InsertElement(*data\DisplayedItems())
-		EndIf
-		
-		*data\Items()\Name = Name
-		*data\Items()\Folded = #NoFold
-		
-		*data\DisplayedItems()\Name = *data\Items()\Name
-		*data\DisplayedItems()\Adress = @*data\Items()
-		*data\DisplayedItems()\YOffset = *data\Border + #Style_ItemList_FoldOffset + 2
-		
-		SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
-		
-		If (ListSize(*data\DisplayedItems()) > *data\VisibleItems) And Not *Data\VScrollbar_Visible
-			Refit(Gadget)
-		Else
-			If ListIndex(*data\DisplayedItems()) < *data\HScrollbar_Visible + *data\VisibleItems ; Avoid useless redraw...
-				Redraw(Gadget, #True)
-			EndIf
-		EndIf
-	EndProcedure
-	
-	Procedure AddSubItem(Gadget, Item, Name.s, Position, ContentType)
-		Protected *data.GadgetData = GetGadgetData(Gadget)
-		If Item < ListSize(*data\Items())
-			SelectElement(*data\Items(), Item)
-			
-			If Position = -1 Or Position >= ListSize(*data\Items()\SubItems())
-				LastElement(*data\Items()\SubItems())
-				AddElement(*data\Items()\SubItems())
+		If Parent = -1 ; Add an item
+			If Position = -1 Or Position >= ListSize(*data\Items())
+				LastElement(*data\Items())
+				AddElement(*data\Items())
+				LastElement(*data\DisplayedItems())
+				AddElement(*data\DisplayedItems())
 			Else
-				SelectElement(*data\Items()\SubItems(), Position)
-				InsertElement(*data\Items()\SubItems())
+				SelectElement(*data\Items(), Position)
+				SearchDisplayedItem(*data, @*data\Items())
+				InsertElement(*data\Items())
+				InsertElement(*data\DisplayedItems())
 			EndIf
 			
-			*data\Items()\SubItems()\Name = Name
+			*data\Items()\Name = Name
+			*data\Items()\Folded = #NoFold
 			
-			If *data\Items()\Folded = #NoFold
-				*data\Items()\Folded = #Folded
-				SearchDisplayedItem(*data, @*data\Items())
-				*data\DisplayedItems()\YOffset = *data\Border + #Style_ItemList_TextOffset
-				*data\ItemListUpdate = #True
-				Redraw(Gadget)
-			ElseIf *data\Items()\Folded = #Unfolded
-				If ListIndex(*data\Items()\SubItems()) = 0
-					SearchDisplayedItem(*data, @*data\Items())
+			*data\DisplayedItems()\Name = *data\Items()\Name
+			*data\DisplayedItems()\Adress = @*data\Items()
+			*data\DisplayedItems()\YOffset = *data\Border + #Style_ItemList_FoldOffset + 2
+			
+			SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
+			
+			If (ListSize(*data\DisplayedItems()) > *data\VisibleItems) And Not *Data\VScrollbar_Visible
+				Refit(Gadget)
+			Else
+				If ListIndex(*data\DisplayedItems()) < *data\HScrollbar_Visible + *data\VisibleItems ; Avoid useless redraw...
+					Redraw(Gadget, #True)
+				EndIf
+			EndIf
+		Else ; Add a sub item
+			If Parent < ListSize(*data\Items())
+				SelectElement(*data\Items(), Parent)
+				
+				If Position = -1 Or Position >= ListSize(*data\Items()\SubItems())
+					LastElement(*data\Items()\SubItems())
+					AddElement(*data\Items()\SubItems())
 				Else
-					PreviousElement(*data\Items()\SubItems())
-					SearchDisplayedItem(*data, @*data\Items()\SubItems())
-					NextElement(*data\Items()\SubItems())
+					SelectElement(*data\Items()\SubItems(), Position)
+					InsertElement(*data\Items()\SubItems())
 				EndIf
 				
-				AddElement(*data\DisplayedItems())
+				*data\Items()\SubItems()\Name = Name
 				
-				*data\DisplayedItems()\Name = Name
-				*data\DisplayedItems()\ParentAdress = @*data\Items()
-				*data\DisplayedItems()\Adress = @*data\Items()\SubItems()
-				*data\DisplayedItems()\Type = #Item_Sub
-				*data\DisplayedItems()\YOffset = #Style_ItemList_SubTextOffset
-				
-				SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
-				
-				If (ListSize(*data\DisplayedItems()) > *data\VisibleItems) And Not *Data\VScrollbar_Visible
-					Refit(Gadget)
-				Else ; We can avoid some redraw by checking if the new item is within the displayed area... Once scrolling is implemented, of course.
-					Redraw(Gadget, #True)
+				If *data\Items()\Folded = #NoFold
+					*data\Items()\Folded = #Folded
+					SearchDisplayedItem(*data, @*data\Items())
+					*data\DisplayedItems()\YOffset = *data\Border + #Style_ItemList_TextOffset
+					*data\ItemListUpdate = #True
+					Redraw(Gadget)
+				ElseIf *data\Items()\Folded = #Unfolded
+					If ListIndex(*data\Items()\SubItems()) = 0
+						SearchDisplayedItem(*data, @*data\Items())
+					Else
+						PreviousElement(*data\Items()\SubItems())
+						SearchDisplayedItem(*data, @*data\Items()\SubItems())
+						NextElement(*data\Items()\SubItems())
+					EndIf
+					
+					AddElement(*data\DisplayedItems())
+					
+					*data\DisplayedItems()\Name = Name
+					*data\DisplayedItems()\ParentAdress = @*data\Items()
+					*data\DisplayedItems()\Adress = @*data\Items()\SubItems()
+					*data\DisplayedItems()\Type = #Item_Sub
+					*data\DisplayedItems()\YOffset = #Style_ItemList_SubTextOffset
+					
+					SetGadgetAttribute(*data\VScrollbar_ID, #PB_ScrollBar_Maximum, ListSize(*data\DisplayedItems()) - 1)
+					
+					If (ListSize(*data\DisplayedItems()) > *data\VisibleItems) And Not *Data\VScrollbar_Visible
+						Refit(Gadget)
+					Else ; We can avoid some redraw by checking if the new item is within the displayed area... Once scrolling is implemented, of course.
+						Redraw(Gadget, #True)
+					EndIf
 				EndIf
 			EndIf
 		EndIf
@@ -454,6 +470,36 @@ Module PureTL
 		Refit(Gadget)
 	EndProcedure
 	
+	Procedure AddMediaBlock(Gadget, Item, SubItem, Start, Finish, ID, Color)
+		Protected *data.GadgetData = GetGadgetData(Gadget)
+		
+		SelectElement(*data\Items(), Item)
+		If SubItem >= -1
+			SelectElement(*data\Items(), SubItem)
+			
+		Else
+			
+			
+			
+		EndIf
+		
+	EndProcedure
+	
+	Procedure AddDataPoint(Gadget, Item, SubItem, Position, ID, Color)
+		Protected *data.GadgetData = GetGadgetData(Gadget)
+		
+		SelectElement(*data\Items(), Item)
+		If SubItem >= -1
+			SelectElement(*data\Items(), SubItem)
+			
+			
+			
+		Else
+			
+			
+			
+		EndIf
+	EndProcedure
 	; Private procedures
 	Procedure Redraw(Gadget, CompleteRedraw = #False)
 		;Ugly code is uglyyyyyy~. First place to refactor once everything is in.
@@ -473,6 +519,7 @@ Module PureTL
 			AddPathBox(*data\Border, *data\Border, *data\ItemList_Width, #Style_Header_Height)
 			VectorSourceColor(*data\Color_ItemList_Back)
 			FillPath()
+			
 			*data\HorizontalMovement = #False
 		EndIf
 		;}
@@ -545,7 +592,6 @@ Module PureTL
 				; Here goes the content loop...
 				
 				
-				
 				If Not NextElement(*Data\DisplayedItems())
 					Break
 				EndIf
@@ -556,16 +602,19 @@ Module PureTL
 				VectorSourceColor(RGBA(240, 240, 240, 255)) ;-WARNING : should theme the scrollbar and this together...
 				FillPath()
 			EndIf
-			
 		EndIf
+		
 		;{ Border
 		CompilerIf #Style_VectorText
 			If *data\Border
 				AddPathBox(0, 0, VectorOutputWidth(), VectorOutputHeight())
-				VectorSourceColor(*data\Color_Border)
-				StrokePath(1)
 			EndIf
 		CompilerEndIf
+		
+		MovePathCursor(*data\XOffset - 0.5, *data\YOffset + 1)
+		AddPathLine(0, *data\Body_Height, #PB_Path_Relative)
+		VectorSourceColor(*data\Color_Border)
+		StrokePath(1)
 		;}
 		StopVectorDrawing()
 		
@@ -658,12 +707,14 @@ Module PureTL
 					
 				EndIf
 			Case #PB_EventType_MouseWheel ;{
-				SetGadgetState(*data\VScrollbar_ID, GetGadgetState(*data\VScrollbar_ID) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
-				Item = GetGadgetState(*data\VScrollbar_ID)
-				If Item <> *data\VScrollbar_Position
-					*data\VScrollbar_Position = Item
-					*data\ItemListUpdate = #True
-					Redraw(Gadget)
+				If *data\VScrollbar_Visible
+					SetGadgetState(*data\VScrollbar_ID, GetGadgetState(*data\VScrollbar_ID) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
+					Item = GetGadgetState(*data\VScrollbar_ID)
+					If Item <> *data\VScrollbar_Position
+						*data\VScrollbar_Position = Item
+						*data\ItemListUpdate = #True
+						Redraw(Gadget)
+					EndIf
 				EndIf
 				;}
 			Case #PB_EventType_KeyDown ;{
@@ -876,7 +927,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 25
-; FirstLine = 4
-; Folding = fZ97x
+; CursorPosition = 19
+; FirstLine = 1
+; Folding = MAAAg
 ; EnableXP

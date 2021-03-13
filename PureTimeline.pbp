@@ -8,24 +8,24 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-12 23:03" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-13 15:58" user="poshu" host="MINIMONSTRO"/>
   </section>
   <section name="files">
     <file name="CanvasButton\CanvasButton.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
       <fingerprint md5="6c7b7774e332c48fd844d9e178e9f56c"/>
     </file>
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="c5ddb50b7a2d8b91c49925e36a527335"/>
+      <fingerprint md5="965c0ed4713b7e3de0efd86b2c485dfe"/>
     </file>
     <file name="MaterialVector\MaterialVector.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
       <fingerprint md5="19094e8b894980873f77a2b2549ec968"/>
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="efd0230489d7b03afa14a7c3ea8489a0"/>
+      <fingerprint md5="4a2a0671c5ba97d047ea8f42cb6b2c81"/>
     </file>
   </section>
   <section name="targets">
