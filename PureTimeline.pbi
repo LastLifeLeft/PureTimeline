@@ -51,12 +51,8 @@ EndDeclareModule
 Module PureTL
 	EnableExplicit
 	;{ Private variables, structures, constants...
-	Enumeration ;Displayed item types
-		#Item_Main
-		#Item_Sub
-	EndEnumeration
 	
-	Enumeration -1 ;Fold
+	Enumeration ;Fold
 		#NoFold
 		#Folded
 		#Unfolded
@@ -88,8 +84,9 @@ Module PureTL
 		Name.s
 		Folded.b
 		AutoFill.b
-		Visible.b
-		List SubItems.Itemlist()
+		DisplayedListAdress.i
+		*Parent.Item
+		List Items.Itemlist()
 		; 		Array ContentArray.Content(#DefaultDuration)
 		
 		;Draw info
@@ -170,7 +167,7 @@ Module PureTL
 	#Style_ItemList_FoldOffset = 24
 	#Style_ItemList_FoldSize = 12
 	#Style_ItemList_TextOffset = #Style_ItemList_FoldSize + #Style_ItemList_FoldOffset + 16
-	#Style_ItemList_SubTextOffset = #Style_ItemList_TextOffset + 12
+	#Style_ItemList_SubItemOffset = #Style_ItemList_TextOffset + 12
 	
 	#Style_ItemList_FoldVOffset = (#Style_ItemList_ItemHeight - #Style_ItemList_FoldSize) / 2 + 1
 	#Style_ItemList_TextVOffset = (#Style_ItemList_ItemHeight - 20) / 2
@@ -358,12 +355,71 @@ Module PureTL
 		Protected *Data.GadgetData = GetGadgetData(Gadget), *Result.Item = AllocateStructure(Item)
 		
 		If *Parent.Item
-			AddElement(*Parent\SubItems())
-			*Parent\SubItems()\item = *Result
+			If Position = -1 Or Position >= ListSize(*Parent\Items())
+				If *Parent\DisplayedListAdress
+					If ListSize(*Parent\Items()) = 0
+						ChangeCurrentElement(*Data\DisplayedItems(), *Parent\DisplayedListAdress)
+					Else
+						LastElement(*Parent\Items())
+						ChangeCurrentElement(*Data\DisplayedItems(), *Parent\Items()\item\DisplayedListAdress)
+					EndIf
+					AddElement(*Data\DisplayedItems())
+					*Result\DisplayedListAdress = @*Data\DisplayedItems()
+					*Data\DisplayedItems()\item = *Result
+				Else
+					LastElement(*Parent\Items())
+				EndIf
+				AddElement(*Parent\Items())
+			Else
+				If *Parent\DisplayedListAdress
+					If Position = 0
+						ChangeCurrentElement(*Data\DisplayedItems(), *Parent\DisplayedListAdress)
+					Else
+						SelectElement(*Parent\Items(), Position)
+						ChangeCurrentElement(*Data\DisplayedItems(), *Parent\Items()\item\DisplayedListAdress)
+					EndIf
+					AddElement(*Data\DisplayedItems())
+					*Result\DisplayedListAdress = @*Data\DisplayedItems()
+					*Data\DisplayedItems()\item = *Result
+				Else
+					SelectElement(*Parent\Items(), Position)
+				EndIf
+				
+				InsertElement(*Parent\Items())
+			EndIf
+			
+			*Parent\Items()\item = *Result
+			
+			If *Parent\Folded = #NoFold
+				*Parent\Folded = #Folded
+			EndIf
+			
+			*Result\Parent = *Parent
+			*Result\YOffset = *Parent\YOffset + #Style_ItemList_SubItemOffset
 		Else
-			AddElement(*Data\Items())
+			If Position = -1 Or Position >= ListSize(*Data\Items())
+				LastElement(*Data\Items())
+				AddElement(*Data\Items())
+				LastElement(*Data\DisplayedItems())
+				AddElement(*Data\DisplayedItems())
+			Else
+				SelectElement(*Data\Items(), Position)
+				InsertElement(*Data\Items())
+				NextElement(*Data\Items())
+				ChangeCurrentElement(*Data\DisplayedItems(), *Data\Items()\item\DisplayedListAdress)
+				InsertElement(*Data\DisplayedItems())
+			EndIf
+			
 			*Data\Items()\item = *Result
+			*Result\DisplayedListAdress = @*Data\DisplayedItems()
+			*Result\YOffset = #Style_ItemList_TextOffset
+			*Data\DisplayedItems()\item = *Result
 		EndIf
+		
+		*Result\AutoFill = Flags & #Item_AutoFill
+		*Result\Name = Name
+		
+		;redim le tableau de contenu
 		
 		ProcedureReturn *Result
 	EndProcedure
@@ -481,7 +537,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 233
-; FirstLine = 170
+; CursorPosition = 422
+; FirstLine = 216
 ; Folding = cO5-
 ; EnableXP
