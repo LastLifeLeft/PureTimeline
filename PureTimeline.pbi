@@ -131,6 +131,8 @@ Module PureTL
 		PreviousState.i
 		Warm.i
 		PreviousWarm.i
+		Toggle.i
+		PreviousToggle.i
 		
 		Duration.i
 		
@@ -266,6 +268,8 @@ Module PureTL
 	
 	Declare ToggleFold(Gadget, *Item.Item)
 	
+	Declare DrawFoldIcon(X, Y, Fold, FrontColor, BackColor = 0)
+	
 	Macro FocusOnSelection
 		If *Data\State < *Data\VScrollbar_Position
 			SetGadgetState(*Data\VScrollbar_ID, *Data\State)
@@ -361,6 +365,8 @@ Module PureTL
 				\State = -1
 				\PreviousState = -1
 				\PreviousWarm = -1
+				\Toggle = -1
+				\PreviousToggle = -1
 				\Duration = #DefaultDuration
 				
 				\VScrollbar_ID = ScrollBarGadget(#PB_Any, 0, \YOffset, 20, \Body_Height, 0, 10, 10,   #PB_ScrollBar_Vertical)
@@ -512,6 +518,21 @@ Module PureTL
 	EndProcedure
 	
 	; Private procedures
+	Procedure DrawFoldIcon(X, Y, Fold, FrontColor, BackColor = 0)
+		If BackColor
+			MaterialVector::AddPathRoundedBox(X - 4, Y - 4, #Style_ItemList_FoldSize + 8, #Style_ItemList_FoldSize + 8, 6)
+			VectorSourceColor(BackColor)
+			FillPath()
+		EndIf
+		
+		If Fold = #Folded
+			MaterialVector::Draw(MaterialVector::#Chevron, X, Y, #Style_ItemList_FoldSize, FrontColor, 0, MaterialVector::#style_rotate_90)
+		Else
+			MaterialVector::Draw(MaterialVector::#Chevron, X, Y, #Style_ItemList_FoldSize, FrontColor, 0, MaterialVector::#style_rotate_180)
+		EndIf
+		
+	EndProcedure
+	
 	Procedure Redraw(Gadget, RedrawPart = #Redraw_Body)
 		Protected *data.GadgetData = GetGadgetData(Gadget)
 		Protected Loop, YPos
@@ -538,18 +559,8 @@ Module PureTL
 				               YPos + #Style_ItemList_TextVOffset)
 				DrawVectorText(*data\DisplayList()\item\Name)
 				
-				If *data\DisplayList()\item\Folded = #Folded
-					MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + *data\DisplayList()\item\XOffset,
-					                     YPos + #Style_ItemList_FoldVOffset,
-					                     #Style_ItemList_FoldSize,
-					                     *data\Color_ItemList_Front, 0,
-					                     MaterialVector::#style_rotate_90)
-				ElseIf *data\DisplayList()\item\Folded = #Unfolded
-					MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + *data\DisplayList()\item\XOffset,
-					                     YPos + #Style_ItemList_FoldVOffset,
-					                     #Style_ItemList_FoldSize,
-					                     *data\Color_ItemList_Front, 0,
-					                     MaterialVector::#style_rotate_180)
+				If *data\DisplayList()\item\Folded
+					DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_Front)
 				EndIf
 				
 				*Data\PreviousWarm = -1
@@ -568,21 +579,30 @@ Module PureTL
 				               YPos + #Style_ItemList_TextVOffset)
 				DrawVectorText(*data\DisplayList()\item\Name)
 				
-				If *data\DisplayList()\item\Folded = #Folded
-					MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + *data\DisplayList()\item\XOffset,
-					                     YPos + #Style_ItemList_FoldVOffset,
-					                     #Style_ItemList_FoldSize,
-					                     *data\Color_ItemList_FrontWarm, 0,
-					                     MaterialVector::#style_rotate_90)
-				ElseIf *data\DisplayList()\item\Folded = #Unfolded
-					MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + *data\DisplayList()\item\XOffset,
-					                     YPos + #Style_ItemList_FoldVOffset,
-					                     #Style_ItemList_FoldSize,
-					                     *data\Color_ItemList_FrontWarm, 0,
-					                     MaterialVector::#style_rotate_180)
+				If *data\DisplayList()\item\Folded
+					DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontWarm)
 				EndIf
 			EndIf
 			
+			If *data\PreviousToggle > -1
+				YPos = *data\YOffset + #Style_ItemList_ItemHeight * (ListIndex(*data\DisplayList()) - *data\VScrollbar_Position)
+				If *data\PreviousToggle = *data\State
+					DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontHot, *data\Color_ItemList_BackHot)
+				Else
+					DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_Front, *data\Color_ItemList_Back)
+				EndIf
+				*data\PreviousToggle = -1
+			EndIf
+			
+			If *data\Toggle > -1
+				YPos = *data\YOffset + #Style_ItemList_ItemHeight * (ListIndex(*data\DisplayList()) - *data\VScrollbar_Position)
+				
+				If *data\Toggle = *data\State
+					DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontWarm, *data\Color_ItemList_BackWarm)
+				Else
+					DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontHot, *data\Color_ItemList_BackHot)
+				EndIf
+			EndIf
 			
 			StopVectorDrawing()
 			ProcedureReturn #True
@@ -597,6 +617,7 @@ Module PureTL
 		EndIf
 		;}
 		
+		;{ Body and itemlist
 		If RedrawPart & #Redraw_ItemList
 			AddPathBox(*data\Border, *data\YOffset, *data\ItemList_Width, *data\Body_Height)
 			VectorSourceColor(*data\Color_ItemList_Back)
@@ -629,34 +650,21 @@ Module PureTL
 				
 				If RedrawPart & #Redraw_ItemList
 					If ListIndex(*data\DisplayList()) = *data\State
-						If *data\DisplayList()\item\Folded = #Folded
-							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + *data\DisplayList()\item\XOffset,
-							                     YPos + #Style_ItemList_FoldVOffset,
-							                     #Style_ItemList_FoldSize,
-							                     *data\Color_ItemList_FrontHot, 0,
-							                     MaterialVector::#style_rotate_90)
-							
-						ElseIf *data\DisplayList()\item\Folded = #Unfolded
-							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + *data\DisplayList()\item\XOffset,
-							                     YPos + #Style_ItemList_FoldVOffset,
-							                     #Style_ItemList_FoldSize,
-							                     *data\Color_ItemList_FrontHot, 0,
-							                     MaterialVector::#style_rotate_180)
+						If *data\DisplayList()\item\Folded
+							If *data\Toggle = ListIndex(*data\DisplayList())
+								DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontWarm, *data\Color_ItemList_BackWarm)
+							Else
+								DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontHot)
+							EndIf
 						EndIf
 						VectorSourceColor(*data\Color_ItemList_FrontHot)
 					Else
-						If *data\DisplayList()\item\Folded = #Folded
-							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + *data\DisplayList()\item\XOffset,
-							                     YPos + #Style_ItemList_FoldVOffset,
-							                     #Style_ItemList_FoldSize,
-							                     *data\Color_ItemList_Front, 0,
-							                     MaterialVector::#style_rotate_90)
-						ElseIf *data\DisplayList()\item\Folded = #Unfolded
-							MaterialVector::Draw(MaterialVector::#Chevron, *data\Border + *data\DisplayList()\item\XOffset,
-							                     YPos + #Style_ItemList_FoldVOffset,
-							                     #Style_ItemList_FoldSize,
-							                     *data\Color_ItemList_Front, 0,
-							                     MaterialVector::#style_rotate_180)
+						If *data\DisplayList()\item\Folded
+							If *data\Toggle = ListIndex(*data\DisplayList())
+								DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontHot, *data\Color_ItemList_BackHot)
+							Else
+								DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_Front)
+							EndIf
 						EndIf
 						VectorSourceColor(*data\Color_ItemList_Front)
 					EndIf
@@ -673,6 +681,7 @@ Module PureTL
 				EndIf
 			Next
 		EndIf
+		;}
 		
 		;{ Border
 		CompilerIf #Style_VectorText
@@ -691,14 +700,17 @@ Module PureTL
 	EndProcedure
 	
 	Procedure HandlerCanvas()
+		
 		Protected Gadget = EventGadget(), *Data.GadgetData = GetGadgetData(Gadget)
 		Protected MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX), MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
-		Protected Item
+		Protected Item, Redraw
 		
 		Select EventType()
-			Case #PB_EventType_MouseMove
+			Case #PB_EventType_MouseMove ;{
 				If MouseY <= *data\YOffset ;{ Header
-					If *Data\Warm > -1
+					If *Data\Warm > -1 Or *Data\Toggle > -1
+						*Data\PreviousToggle = *Data\Toggle
+						*Data\Toggle = -1
 						*Data\PreviousWarm = *Data\Warm
 						*Data\Warm = -1
 						Redraw(Gadget, #Redraw_StateOnly)
@@ -706,6 +718,32 @@ Module PureTL
 					;}
 				ElseIf MouseX < *data\XOffset ;{ Itemlist
 					Item = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) + *data\VScrollbar_Position
+; 					If Item < ListSize(*Data\DisplayList()) And SelectElement(*Data\DisplayList(), Item) And mou
+					
+					If SelectElement(*Data\DisplayList(), Item) And *Data\DisplayList()\item\Folded
+						If MouseX >= *Data\DisplayList()\item\XOffset - 2 And MouseX <= *Data\DisplayList()\item\XOffset + #Style_ItemList_FoldSize + 2
+							Protected YPos = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_FoldVOffset - 2
+							If MouseY >= YPos And MouseY <= YPos + #Style_ItemList_FoldSize + 4
+								If *Data\Warm > -1
+									*Data\PreviousWarm = *Data\Warm
+									*Data\Warm = -1
+								EndIf
+								
+								If *Data\Toggle <> Item
+									*Data\Toggle = Item
+									Redraw(Gadget, #Redraw_StateOnly)
+								EndIf
+								
+								ProcedureReturn
+							EndIf
+						EndIf
+					EndIf
+					
+					If *Data\Toggle > -1
+						*Data\PreviousToggle = *Data\Toggle
+						*Data\Toggle = -1
+						Redraw = #True
+					EndIf
 					
 					If Item <> *Data\Warm 
 						*Data\PreviousWarm = *Data\Warm
@@ -714,44 +752,61 @@ Module PureTL
 						Else
 							*Data\Warm = -1
 						EndIf
+						Redraw = #True
+					EndIf
+					
+					If Redraw
 						Redraw(Gadget, #Redraw_StateOnly)
 					EndIf
 					
 					;}
 				Else ;{ Timeline
-					If *Data\Warm > -1
+					If *Data\Warm > -1 Or *Data\Toggle > -1
+						*Data\PreviousToggle = *Data\Toggle
+						*Data\Toggle = -1
 						*Data\PreviousWarm = *Data\Warm
 						*Data\Warm = -1
 						Redraw(Gadget, #Redraw_StateOnly)
 					EndIf
-					
-					
 					;}
 				EndIf
-			Case #PB_EventType_LeftButtonDown
+				
+				;}
+			Case #PB_EventType_LeftButtonDown ;{
 				If MouseY <= *data\YOffset ; Header
 					
 				ElseIf MouseX < *data\XOffset ;{ Itemlist
-					Item = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) + *data\VScrollbar_Position
-					
-					If Item <> *Data\State
+					If *Data\Toggle > -1
+						SelectElement(*Data\DisplayList(), *Data\Toggle)
+						ToggleFold(Gadget, *Data\DisplayList()\item)
+; 						If *Data\State <> *Data\Toggle
+; 							*Data\State = *Data\Toggle
+; 							Redraw(Gadget, #Redraw_ItemList)
+; 						EndIf
+						Redraw(Gadget, #Redraw_ItemList)
+					ElseIf *Data\Warm > -1
+						*Data\State = *Data\Warm
 						*Data\Warm = -1
-						*Data\State = Item
 						Redraw(Gadget, #Redraw_ItemList)
 					EndIf
 					;}
 				Else ; Timeline
 					
 				EndIf
-			Case #PB_EventType_MouseLeave
+				;}
+			Case #PB_EventType_MouseLeave ;{
 				If *Data\Warm > -1
 					*Data\PreviousWarm = *Data\Warm
 					*Data\Warm = -1
 					Redraw(Gadget, #Redraw_StateOnly)
 				EndIf
-			Case #PB_EventType_LeftButtonDown
-			Case #PB_EventType_LeftDoubleClick
-			Case #PB_EventType_KeyDown
+				;}
+			Case #PB_EventType_LeftButtonDown ;{
+				;}
+			Case #PB_EventType_LeftDoubleClick ;{
+				;}
+			Case #PB_EventType_KeyDown ;{
+				;}
 			Case #PB_EventType_MouseWheel ;{
 				If *data\VScrollbar_Visible
 					SetGadgetState(*data\VScrollbar_ID, GetGadgetState(*data\VScrollbar_ID) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
@@ -863,7 +918,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 745
-; FirstLine = 335
-; Folding = cYA6v-
+; CursorPosition = 780
+; FirstLine = 232
+; Folding = cZAUHDq
 ; EnableXP
