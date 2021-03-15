@@ -41,8 +41,6 @@ DeclareModule PureTL
 	
 	Declare RemoveItem(Gadget, Item)
 	
-	
-	
 	Declare Freeze(Gadget, State) ;Disable the redrawing of the gadget (Should be used before a large amount is done to avoid CPU consumption spike)
 	Declare Resize(Gadget, x, y, Width, Height)
 	
@@ -535,8 +533,20 @@ Module PureTL
 		ProcedureReturn *Result
 	EndProcedure
 	
-	Procedure GetItemID(Gadget, Position, ParentID = 0)
+	Procedure GetItemID(Gadget, Position, *Parent.Item = 0)
+		Protected *Data.GadgetData = GetGadgetData(Gadget), *Result
 		
+		If *Parent
+			If SelectElement(*Parent\Items(), Position)
+				*Result = *Parent\Items()\item
+			EndIf
+		Else
+			If SelectElement(*Data\Items(), Position)
+				*Result = *Data\Items()\item
+			EndIf
+		EndIf
+		
+		ProcedureReturn *Result
 	EndProcedure
 	
 	Procedure RemoveItem(Gadget, Item)
@@ -1066,7 +1076,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 860
-; FirstLine = 310
-; Folding = cyAIGuB9
+; CursorPosition = 538
+; FirstLine = 49
+; Folding = MwBICuB9
 ; EnableXP
