@@ -280,6 +280,65 @@ Module PureTL
 		EndIf
 	EndMacro
 	
+	Macro MouseHovering
+		Item = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) + *data\VScrollbar_Position
+		
+		If SelectElement(*Data\DisplayList(), Item)
+			If *Data\DisplayList()\item\Folded
+				If MouseX >= *Data\DisplayList()\item\XOffset - 2 And MouseX <= *Data\DisplayList()\item\XOffset + #Style_ItemList_FoldSize + 2
+					YPos = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_FoldVOffset - 2
+					If MouseY >= YPos And MouseY <= YPos + #Style_ItemList_FoldSize + 4
+						If *Data\Warm > -1
+							*Data\PreviousWarm = *Data\Warm
+							*Data\Warm = -1
+						EndIf
+						
+						If *Data\Toggle <> Item
+							*Data\Toggle = Item
+							Redraw = #True
+						EndIf
+						
+						If EventType() = #PB_EventType_MouseMove
+							If Redraw
+								Redraw(Gadget, #Redraw_StateOnly)
+							EndIf
+							ProcedureReturn
+						EndIf
+					EndIf
+				EndIf
+			EndIf
+			
+			If *Data\Toggle > -1
+				*Data\PreviousToggle = *Data\Toggle
+				*Data\Toggle = -1
+				Redraw = #True
+			EndIf
+			
+			If Item <> *Data\Warm
+				If Item <> *Data\State And MouseX > *data\DisplayList()\item\XOffset - #Style_ItemList_RoundedBoxOffset And MouseX < *Data\XOffset - #Style_ItemList_RoundedBoxOffset
+					If *Data\PreviousToggle = Item
+						*Data\PreviousToggle = -1
+					EndIf
+					*Data\PreviousWarm = *Data\Warm
+					*Data\Warm = Item
+					Redraw = #True
+				Else
+					If *Data\Warm > -1
+						*Data\PreviousWarm = *Data\Warm
+						*Data\Warm = -1
+						Redraw = #True
+					EndIf
+				EndIf
+			ElseIf Not (MouseX > *data\DisplayList()\item\XOffset - #Style_ItemList_RoundedBoxOffset And MouseX < *Data\XOffset - #Style_ItemList_RoundedBoxOffset)
+				If *Data\Warm > -1
+					*Data\PreviousWarm = *Data\Warm
+					*Data\Warm = -1
+					Redraw = #True
+				EndIf
+			EndIf
+		EndIf
+	EndMacro
+
 	; Public procedures
 	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #Default)
 		Protected Result.i, *Data.GadgetData, Theme
@@ -364,6 +423,7 @@ Module PureTL
 				
 				\State = -1
 				\PreviousState = -1
+				\Warm = -1
 				\PreviousWarm = -1
 				\Toggle = -1
 				\PreviousToggle = -1
@@ -535,7 +595,7 @@ Module PureTL
 	
 	Procedure Redraw(Gadget, RedrawPart = #Redraw_Body)
 		Protected *data.GadgetData = GetGadgetData(Gadget)
-		Protected Loop, YPos
+		Protected Loop, YPos, Index
 		
 		If *data\Frozen
 			ProcedureReturn #False
@@ -631,8 +691,9 @@ Module PureTL
 		If SelectElement(*data\DisplayList(), *data\VScrollbar_Position)
 			For Loop = 0 To *data\VisibleItems
 				YPos = Loop * #Style_ItemList_ItemHeight + *data\YOffset
+				Index = ListIndex(*data\DisplayList())
 				
-				If ListIndex(*data\DisplayList()) = *data\State
+				If Index  = *data\State
 					If RedrawPart & #Redraw_ItemList
 						MaterialVector::AddPathRoundedBox(*data\DisplayList()\item\XOffset - #Style_ItemList_RoundedBoxOffset, YPos, *data\ItemList_Width, #Style_ItemList_ItemHeight, 6)
 						VectorSourceColor(*data\Color_ItemList_BackHot)
@@ -642,25 +703,38 @@ Module PureTL
 					AddPathBox(*data\XOffset, *data\YOffset + (Loop) * #Style_ItemList_ItemHeight, *data\Body_Width, #Style_ItemList_ItemHeight)
 					VectorSourceColor(*data\Color_Body_BackHot)
 					FillPath()
-				ElseIf (Loop + *data\VScrollbar_Position) % 2
-					AddPathBox(*data\XOffset, *data\YOffset + (Loop) * #Style_ItemList_ItemHeight, *data\Body_Width, #Style_ItemList_ItemHeight)
-					VectorSourceColor(*data\Color_Body_BackAlt)
-					FillPath()
+				Else
+					If Index = *data\Warm
+						MaterialVector::AddPathRoundedBox(*data\DisplayList()\item\XOffset - #Style_ItemList_RoundedBoxOffset, YPos, *data\ItemList_Width - *data\DisplayList()\item\XOffset, #Style_ItemList_ItemHeight, 6)
+						VectorSourceColor(*data\Color_ItemList_BackWarm)
+						FillPath()
+					EndIf
+					
+					If (Loop + *data\VScrollbar_Position) % 2
+						AddPathBox(*data\XOffset, *data\YOffset + (Loop) * #Style_ItemList_ItemHeight, *data\Body_Width, #Style_ItemList_ItemHeight)
+						VectorSourceColor(*data\Color_Body_BackAlt)
+						FillPath()
+					EndIf
 				EndIf
 				
 				If RedrawPart & #Redraw_ItemList
-					If ListIndex(*data\DisplayList()) = *data\State
+					If Index = *data\State
 						If *data\DisplayList()\item\Folded
-							If *data\Toggle = ListIndex(*data\DisplayList())
+							If *data\Toggle = Index
 								DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontWarm, *data\Color_ItemList_BackWarm)
 							Else
 								DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontHot)
 							EndIf
 						EndIf
 						VectorSourceColor(*data\Color_ItemList_FrontHot)
+					ElseIf  Index = *data\Warm
+						If *data\DisplayList()\item\Folded
+							DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontWarm)
+						EndIf
+						VectorSourceColor(*data\Color_ItemList_FrontWarm)
 					Else
 						If *data\DisplayList()\item\Folded
-							If *data\Toggle = ListIndex(*data\DisplayList())
+							If *data\Toggle = Index
 								DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_FrontHot, *data\Color_ItemList_BackHot)
 							Else
 								DrawFoldIcon(*data\Border + *data\DisplayList()\item\XOffset, YPos + #Style_ItemList_FoldVOffset, *data\DisplayList()\item\Folded, *data\Color_ItemList_Front)
@@ -700,10 +774,9 @@ Module PureTL
 	EndProcedure
 	
 	Procedure HandlerCanvas()
-		
 		Protected Gadget = EventGadget(), *Data.GadgetData = GetGadgetData(Gadget)
 		Protected MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX), MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
-		Protected Item, Redraw
+		Protected Item, Redraw, YPos
 		
 		Select EventType()
 			Case #PB_EventType_MouseMove ;{
@@ -717,43 +790,8 @@ Module PureTL
 					EndIf
 					;}
 				ElseIf MouseX < *data\XOffset ;{ Itemlist
-					Item = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) + *data\VScrollbar_Position
-; 					If Item < ListSize(*Data\DisplayList()) And SelectElement(*Data\DisplayList(), Item) And mou
 					
-					If SelectElement(*Data\DisplayList(), Item) And *Data\DisplayList()\item\Folded
-						If MouseX >= *Data\DisplayList()\item\XOffset - 2 And MouseX <= *Data\DisplayList()\item\XOffset + #Style_ItemList_FoldSize + 2
-							Protected YPos = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) * #Style_ItemList_ItemHeight + *data\YOffset + #Style_ItemList_FoldVOffset - 2
-							If MouseY >= YPos And MouseY <= YPos + #Style_ItemList_FoldSize + 4
-								If *Data\Warm > -1
-									*Data\PreviousWarm = *Data\Warm
-									*Data\Warm = -1
-								EndIf
-								
-								If *Data\Toggle <> Item
-									*Data\Toggle = Item
-									Redraw(Gadget, #Redraw_StateOnly)
-								EndIf
-								
-								ProcedureReturn
-							EndIf
-						EndIf
-					EndIf
-					
-					If *Data\Toggle > -1
-						*Data\PreviousToggle = *Data\Toggle
-						*Data\Toggle = -1
-						Redraw = #True
-					EndIf
-					
-					If Item <> *Data\Warm 
-						*Data\PreviousWarm = *Data\Warm
-						If Item <> *Data\State And Item < ListSize(*Data\DisplayList())
-							*Data\Warm = Item
-						Else
-							*Data\Warm = -1
-						EndIf
-						Redraw = #True
-					EndIf
+					MouseHovering
 					
 					If Redraw
 						Redraw(Gadget, #Redraw_StateOnly)
@@ -779,11 +817,7 @@ Module PureTL
 					If *Data\Toggle > -1
 						SelectElement(*Data\DisplayList(), *Data\Toggle)
 						ToggleFold(Gadget, *Data\DisplayList()\item)
-; 						If *Data\State <> *Data\Toggle
-; 							*Data\State = *Data\Toggle
-; 							Redraw(Gadget, #Redraw_ItemList)
-; 						EndIf
-						Redraw(Gadget, #Redraw_ItemList)
+						Refit(Gadget)
 					ElseIf *Data\Warm > -1
 						*Data\State = *Data\Warm
 						*Data\Warm = -1
@@ -795,7 +829,11 @@ Module PureTL
 				EndIf
 				;}
 			Case #PB_EventType_MouseLeave ;{
-				If *Data\Warm > -1
+				If *Data\Toggle > -1
+					*Data\PreviousToggle = *Data\Toggle
+					*Data\Toggle = -1
+					Redraw(Gadget, #Redraw_StateOnly)
+				ElseIf *Data\Warm > -1
 					*Data\PreviousWarm = *Data\Warm
 					*Data\Warm = -1
 					Redraw(Gadget, #Redraw_StateOnly)
@@ -804,26 +842,136 @@ Module PureTL
 			Case #PB_EventType_LeftButtonDown ;{
 				;}
 			Case #PB_EventType_LeftDoubleClick ;{
+				If *Data\Toggle = -1
+					Item = Round((MouseY - *data\YOffset) / #Style_ItemList_ItemHeight, #PB_Round_Down) + *data\VScrollbar_Position
+					If SelectElement(*Data\DisplayList(), Item) And *Data\DisplayList()\item\Folded
+						If MouseX > *data\DisplayList()\item\XOffset - #Style_ItemList_RoundedBoxOffset And MouseX < *Data\XOffset - #Style_ItemList_RoundedBoxOffset
+							ToggleFold(Gadget, *Data\DisplayList()\item)
+							Refit(Gadget)
+						EndIf
+					EndIf
+				EndIf
 				;}
 			Case #PB_EventType_KeyDown ;{
+				Select GetGadgetAttribute(Gadget, #PB_Canvas_Key)
+					Case #PB_Shortcut_Up
+						If *Data\State > 0
+							*Data\State - 1
+							
+							FocusOnSelection
+							MouseHovering
+							
+							Redraw(Gadget, #Redraw_ItemList)
+						EndIf
+					Case #PB_Shortcut_Down
+						If *Data\State < ListSize(*Data\DisplayList()) - 1
+							*Data\State + 1
+							
+							FocusOnSelection
+							MouseHovering
+							
+							Redraw(Gadget, #Redraw_ItemList)
+						EndIf
+					Case #PB_Shortcut_Space
+						If *Data\State > -1
+							SelectElement(*Data\DisplayList(), *Data\State)
+							If *Data\DisplayList()\item\Folded
+								ToggleFold(Gadget, *Data\DisplayList()\item)
+								MouseHovering
+								Redraw(Gadget, #Redraw_ItemList)
+							EndIf
+						EndIf
+				EndSelect
 				;}
 			Case #PB_EventType_MouseWheel ;{
 				If *data\VScrollbar_Visible
-					SetGadgetState(*data\VScrollbar_ID, GetGadgetState(*data\VScrollbar_ID) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
+					Protected Direction = GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta)
+					SetGadgetState(*data\VScrollbar_ID, GetGadgetState(*data\VScrollbar_ID) - Direction)
 					Item = GetGadgetState(*data\VScrollbar_ID)
 					If Item <> *data\VScrollbar_Position
 						*data\VScrollbar_Position = Item
+						
+						If *Data\Toggle Or *Data\Warm
+							*Data\Toggle = -1
+							*Data\Warm = -1
+						EndIf
+						
+						If MouseY > *Data\YOffset And MouseX < *Data\ItemList_Width
+							MouseHovering
+						EndIf
+							
 						Redraw(Gadget, #Redraw_ItemList)
 					EndIf
 				EndIf
 				;}
 		EndSelect
+	EndProcedure
+	
+	Procedure AddSubToDisplay(*Data.GadgetData, *Item.Item)
+		Protected Result
 		
+		If *Item\Folded = #Unfolded
+			ForEach *Item\Items()
+				Result + 1
+				AddElement(*Data\DisplayList())
+				*Data\DisplayList()\item = *Item\Items()\item
+				*Item\Items()\item\DisplayListAdress = @*Data\DisplayList()
+				
+				If *Item\Items()\item\Folded = #Unfolded
+					Result + AddSubToDisplay(*Data.GadgetData, *Item\Items()\item)
+				EndIf
+			Next
+		EndIf
 		
+		ProcedureReturn Result
+	EndProcedure
+	
+	Procedure RemoveSubFromDisplay(*Data.GadgetData, *Item.Item)
+		Protected Result
+		
+		If *Item\Folded = #Unfolded
+			ForEach *Item\Items()
+				Result + 1
+				NextElement(*Data\DisplayList())
+				*Data\DisplayList()\item\DisplayListAdress = 0
+				
+				If *Data\DisplayList()\item\Folded = #Unfolded
+					Result + RemoveSubFromDisplay(*Data, *Data\DisplayList()\item)
+				EndIf
+				
+				DeleteElement(*Data\DisplayList())
+			Next
+		EndIf
+		
+		ProcedureReturn Result
 	EndProcedure
 	
 	Procedure ToggleFold(Gadget, *Item.Item)
+		Protected *Data.GadgetData = GetGadgetData(Gadget), Index, Count
+		ChangeCurrentElement(*Data\DisplayList(), *Item\DisplayListAdress)
 		
+		Index = ListIndex(*Data\DisplayList())
+		
+		If *Item\Folded = #Folded
+			*Item\Folded = #Unfolded
+			
+			Count = AddSubToDisplay(*Data, *Item)
+			
+			If Index < *Data\State
+				*Data\State + Count
+			EndIf
+			
+		Else
+			Count = RemoveSubFromDisplay(*Data, *Item)
+			*Item\Folded = #Folded
+			If Index < *Data\State
+				If *Data\State =< Index + Count
+					*Data\State = -1
+				Else
+					*Data\State - Count
+				EndIf
+			EndIf
+		EndIf
 	EndProcedure
 	
 	Procedure HandlerVScrollbar()
@@ -918,7 +1066,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 780
-; FirstLine = 232
-; Folding = cZAUHDq
+; CursorPosition = 860
+; FirstLine = 310
+; Folding = cyAIGuB9
 ; EnableXP

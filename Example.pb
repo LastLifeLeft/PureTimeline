@@ -17,19 +17,18 @@ PureTL::AddItem(0, "Item 4", 2)
 PureTL::AddItem(0, "Item 5", -1)
 PureTL::AddItem(0, "Item 6", -1)
 
-PureTL::AddItem(0, "Testouille 1", -1, item_id)
 PureTL::AddItem(0, "Testouille 2", -1, item_id)
+item_id = PureTL::AddItem(0, "Testouille 1", 0, item_id)
+
+PureTL::AddItem(0, "Testouille 3", -1, item_id)
+PureTL::AddItem(0, "Testouille 4", -1, item_id)
+PureTL::AddItem(0, "Testouille 5", -1, item_id)
 
 PureTL::AddItem(0, "Item 7", -1)
 PureTL::AddItem(0, "Item 8", -1)
 PureTL::AddItem(0, "Item 9", -1)
 PureTL::AddItem(0, "Item 10", -1)
 PureTL::AddItem(0, "Item 11", -1)
-; PureTL::AddItem(0, "Testouille 1", -1, 2)
-; PureTL::AddItem(0, "Testouille 2", -1, 2)
-; PureTL::AddItem(0, "Testouille 3", 1, 2)
-; PureTL::AddItem(0, "Testouille 4", 1, 5)
-; PureTL::AddItem(0, "Testouille 5", 1, 5)
 
 WindowBounds(0, 700, 400, #PB_Ignore, #PB_Ignore)
 BindEvent(#PB_Event_CloseWindow, @Handler_CloseWindow())
@@ -39,6 +38,6 @@ Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 20
+; CursorPosition = 11
 ; Folding = -
 ; EnableXP
