@@ -10,17 +10,35 @@ EndProcedure
 
 OpenWindow(0, 0, 0, 700, 400, "PureTimeline Example", #PB_Window_SystemMenu | #PB_Window_ScreenCentered | #PB_Window_SizeGadget)
 PureTL::Gadget(0, 10, 10, 680, 380, PureTL::#Header)
-PureTL::AddItem(0, "Item 1", -1)
-PureTL::AddItem(0, "Item 2", -1)
-PureTL::AddItem(0, "Item 3", -1)
-PureTL::AddItem(0, "Item 4", 2)
-PureTL::AddItem(0, "Item 5", -1)
-PureTL::AddItem(0, "Item 6", -1)
+item_id = PureTL::AddItem(0, "Item 1", -1)
+PureTL::AddMediaBlock(0, item_id, 5, 19, 0)
+PureTL::AddDataPoint(0, item_id, 19, 0)
+item_id = PureTL::AddItem(0, "Item 2", -1)
+PureTL::AddMediaBlock(0, item_id, 9, 23, 0)
+PureTL::AddDataPoint(0, item_id, 19, 0)
+item_id = PureTL::AddItem(0, "Item 3", -1)
+PureTL::AddMediaBlock(0, item_id, 17, 31, 0)
+PureTL::AddDataPoint(0, item_id, 19, 0)
+item_id = PureTL::AddItem(0, "Item 4", 2)
+PureTL::AddMediaBlock(0, item_id, 13, 27, 0)
+PureTL::AddDataPoint(0, item_id, 19, 0)
+item_id = PureTL::AddItem(0, "Item 5", -1)
+PureTL::AddMediaBlock(0, item_id, 21, 35, 0)
+PureTL::AddDataPoint(0, item_id, 19, 0)
+item_id = PureTL::AddItem(0, "Item 6", -1)
+PureTL::AddMediaBlock(0, item_id, 25, 39, 0)
+PureTL::AddDataPoint(0, item_id, 19, 0)
 
 item_id = PureTL::GetItemID(0, 3)
 
 PureTL::AddItem(0, "Testouille 2", -1, item_id)
 PureTL::AddItem(0, "Testouille 1", 0, item_id)
+
+; PureTL::AddMediaBlock(0, item_id, 5, 19, 0)
+; PureTL::AddDataPoint(0, item_id, 19, 0)
+; PureTL::AddDataPoint(0, item_id, 100, 0)
+; PureTL::AddDataPoint(0, item_id, 37, 0)
+
 
 item_id = PureTL::GetItemID(0, 0, item_id)
 
@@ -42,6 +60,6 @@ Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 18
+; CursorPosition = 11
 ; Folding = -
 ; EnableXP
