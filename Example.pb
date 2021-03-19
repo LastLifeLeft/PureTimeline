@@ -9,10 +9,16 @@ Procedure Handler_SizeWindow()
 EndProcedure
 
 OpenWindow(0, 0, 0, 700, 400, "PureTimeline Example", #PB_Window_SystemMenu | #PB_Window_ScreenCentered | #PB_Window_SizeGadget)
-PureTL::Gadget(0, 10, 10, 680, 380, PureTL::#Header)
+PureTL::Gadget(0, 10, 10, 680, 380, PureTL::#Header | PureTL::#DarkTheme)
 item_id = PureTL::AddItem(0, "Item 1", -1)
 PureTL::AddMediaBlock(0, item_id, 5, 19, 0)
 PureTL::AddDataPoint(0, item_id, 19, 0)
+PureTL::AddDataPoint(0, item_id, 20, 0)
+PureTL::AddDataPoint(0, item_id, 21, 0)
+PureTL::AddDataPoint(0, item_id, 22, 0)
+PureTL::AddDataPoint(0, item_id, 23, 0)
+PureTL::AddDataPoint(0, item_id, 5, 0)
+PureTL::AddDataPoint(0, item_id, 6, 0)
 item_id = PureTL::AddItem(0, "Item 2", -1)
 PureTL::AddMediaBlock(0, item_id, 9, 23, 0)
 PureTL::AddDataPoint(0, item_id, 19, 0)
@@ -33,12 +39,6 @@ item_id = PureTL::GetItemID(0, 3)
 
 PureTL::AddItem(0, "Testouille 2", -1, item_id)
 PureTL::AddItem(0, "Testouille 1", 0, item_id)
-
-; PureTL::AddMediaBlock(0, item_id, 5, 19, 0)
-; PureTL::AddDataPoint(0, item_id, 19, 0)
-; PureTL::AddDataPoint(0, item_id, 100, 0)
-; PureTL::AddDataPoint(0, item_id, 37, 0)
-
 
 item_id = PureTL::GetItemID(0, 0, item_id)
 
