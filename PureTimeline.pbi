@@ -106,19 +106,23 @@ Module PureTL
 	#Style_List_LineMargin = 24
 	#Style_List_FoldSize = 14
 	#Style_List_FoldMargin = 10
-	#Style_List_FoldVOffset = (#Style_List_LineHeight - #Style_List_FoldSize) / 2 + 2				; +2 to get the right alignment with the text...
+	#Style_List_FoldVOffset = (#Style_List_LineHeight - #Style_List_FoldSize) / 2 + 2 ; +2 to get the right alignment with the text...
 	
 	#Style_Body_DefaultColumnWidth = 12
+	#Style_Body_MinimumColumnWidth = 2
 	#Style_Body_ColumnMargin = 2
 	
-	#Style_DataPoint_Size = 5
-	#Style_DataPoint_OffsetY = (#Style_List_LineHeight - #Style_DataPoint_Size * 2) / 2
+	#Style_DataPoint_SizeBig = 5
+	#Style_DataPoint_SizeMedium = 3
+	#Style_DataPoint_SizeSmall = 1
+	#Style_DataPoint_OffsetY = #Style_List_LineHeight / 2
 	
 	#Style_MediaBlock_Margin = 3
 	#Style_MediaBlock_Height = #Style_List_LineHeight - 2 * #Style_MediaBlock_Margin
 	#Style_MediaBlock_IconYOffset = 15
 	#Style_MediaBlock_IconXOffset = 10
 	#Style_MediaBlock_IconSize = #Style_List_LineHeight - 2 * #Style_MediaBlock_IconYOffset
+	#Style_MediaBlock_IconMinimumWidth = #Style_MediaBlock_IconSize + 2 * #Style_MediaBlock_IconXOffset
 	
 	; Colors
 	#Color_ListBack		= $2F3136
@@ -275,7 +279,6 @@ Module PureTL
 	DefaultColors(3) = FixColor(#Color_Body_Objects03)
 	DefaultColors(4) = FixColor(#Color_Body_Objects04)
 	DefaultColors(5) = FixColor(#Color_Body_Objects05)
-	
 	;}
 	
 	; Private procedures declaration
@@ -358,29 +361,26 @@ Module PureTL
 			Else
 				MouseX - *Data\Meas_Body_HOffset
 				Column = Round(MouseX / *Data\Meas_Body_ColumnWidth, #PB_Round_Down) + *Data\Meas_HScrollPosition
-				SelectElement(*Data\Content_DisplayedLines(), Line)
-				
-				If *Data\Content_DisplayedLines()\Object\Mediablocks(Column) And (MouseY > #Style_MediaBlock_Margin And MouseY < #Style_List_LineHeight - #Style_MediaBlock_Margin)
-					If *Data\State_WarmMediaBlock <> *Data\Content_DisplayedLines()\Object\Mediablocks(Column)
-						CoolDown
-						*Data\State_WarmMediaBlock = *Data\Content_DisplayedLines()\Object\Mediablocks(Column)
-						If *Data\State_WarmMediaBlock\State = #State_Cold
-							*Data\State_WarmMediaBlock\State = #State_Warm
-							Redraw = #True
-						EndIf
-					EndIf
-				ElseIf *Data\Content_DisplayedLines()\Object\DataPoints(Column)
+				If Column > *Data\Content_Duration
 					CoolDown
-					; 							If *Data\Content_DisplayedLines()\Object\DataPoints(Column)\State = #State_Cold
-					; 								CoolDown
-					; 								*Data\State_WarmDataPoint = *Data\Content_DisplayedLines()\Object\DataPoints(Column)
-					; 								*Data\State_WarmDataPoint\State = #State_Warm
-					; 								Redraw = #True
-					; 							EndIf
 				Else
-					CoolDown
+					SelectElement(*Data\Content_DisplayedLines(), Line)
+					
+					If *Data\Content_DisplayedLines()\Object\Mediablocks(Column) And (MouseY > #Style_MediaBlock_Margin And MouseY < #Style_List_LineHeight - #Style_MediaBlock_Margin)
+						If *Data\State_WarmMediaBlock <> *Data\Content_DisplayedLines()\Object\Mediablocks(Column)
+							CoolDown
+							*Data\State_WarmMediaBlock = *Data\Content_DisplayedLines()\Object\Mediablocks(Column)
+							If *Data\State_WarmMediaBlock\State = #State_Cold
+								*Data\State_WarmMediaBlock\State = #State_Warm
+								Redraw = #True
+							EndIf
+						EndIf
+					ElseIf *Data\Content_DisplayedLines()\Object\DataPoints(Column)
+						CoolDown
+					Else
+						CoolDown
+					EndIf
 				EndIf
-				
 			EndIf ;}
 		EndIf
 	EndMacro
@@ -500,6 +500,7 @@ Module PureTL
 			CloseGadgetList()
 			SetGadgetData(Gadget, *Data)
 			Refit(Gadget)
+			Redraw(Gadget)
 			BindGadgetEvent(Gadget, @HandlerCanvas())
 		EndIf
 		
@@ -510,6 +511,7 @@ Module PureTL
 	Procedure Resize(Gadget, X, Y, Width, Height)
 		ResizeGadget(Gadget, X, Y, Width, Height)
 		Refit(Gadget)
+		Redraw(Gadget)
 	EndProcedure
 	
 	Procedure Freeze(Gadget, State)
@@ -590,6 +592,7 @@ Module PureTL
 		*NewLine\Text = Text
 		
 		Refit(Gadget)
+		Redraw(Gadget)
 		
 		ProcedureReturn *NewLine
 	EndProcedure
@@ -600,6 +603,7 @@ Module PureTL
 		RecurciveDelete(*Data.GadgetData, *Line.Line)
 		
 		Refit(Gadget)
+		Redraw(Gadget)
 	EndProcedure
 	
 	Procedure GetLineID(Gadget, Position, *ParentID.Line = 0)
@@ -824,10 +828,17 @@ Module PureTL
 				EndIf
 				;}
 			Case #PB_EventType_MouseWheel ;{
-				SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta ))
-				If ScrollVertical(Gadget)
+				If (GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control)
+					*Data\Meas_Body_ColumnWidth = Max(*Data\Meas_Body_ColumnWidth + GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta), #Style_Body_MinimumColumnWidth)
+					Refit(Gadget)
 					MouseMouve
 					Redraw = #True
+				Else
+					SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
+					If ScrollVertical(Gadget)
+						MouseMouve
+						Redraw = #True
+					EndIf
 				EndIf
 				;}
 			Case #PB_EventType_KeyDown ;{
@@ -968,12 +979,18 @@ Module PureTL
 		EndIf
 	EndProcedure
 	
-	Procedure DrawDataPoint(x, y)
-		MovePathCursor(x, y)
-		AddPathLine(- #Style_DataPoint_Size, #Style_DataPoint_Size, #PB_Relative)
-		AddPathLine(#Style_DataPoint_Size, #Style_DataPoint_Size, #PB_Relative)
-		AddPathLine(#Style_DataPoint_Size, - #Style_DataPoint_Size, #PB_Relative)
-		ClosePath()
+	Procedure DrawDataPoint(*Data.GadgetData, x, y)
+		If *Data\Meas_Body_ColumnWidth < 10
+			If *Data\Meas_Body_ColumnWidth > 5
+				AddPathCircle(x + (*Data\Meas_Body_ColumnWidth - 2 * #Style_DataPoint_SizeMedium) * 0.5, y, #Style_DataPoint_SizeMedium)
+			EndIf
+		Else
+			MovePathCursor(x + (*Data\Meas_Body_ColumnWidth - 2 * #Style_DataPoint_SizeBig) * 0.5, y - #Style_DataPoint_SizeBig)
+			AddPathLine(- #Style_DataPoint_SizeBig, #Style_DataPoint_SizeBig, #PB_Relative)
+			AddPathLine(#Style_DataPoint_SizeBig, #Style_DataPoint_SizeBig, #PB_Relative)
+			AddPathLine(#Style_DataPoint_SizeBig, - #Style_DataPoint_SizeBig, #PB_Relative)
+			ClosePath()
+		EndIf
 	EndProcedure
 	
 	Procedure AddPathMediaBlock(x, y, Width, Height, Radius)
@@ -990,7 +1007,10 @@ Module PureTL
 		Protected Loop, x
 		
 		If *Block\State = #State_Drag
-			AddPathMediaBlock((Max((*Block\FirstBlock + *Data\Drag_OffsetX), 0) - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset - 1,YPos + #Style_MediaBlock_Margin - 1, (*Block\LastBlock - *Block\FirstBlock + 1) * *Data\Meas_Body_ColumnWidth + 2, #Style_MediaBlock_Height + 2, *Data\Meas_Body_ColumnWidth)
+			AddPathMediaBlock((Max((*Block\FirstBlock + *Data\Drag_OffsetX), 0) - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset - 1,
+			                  YPos + #Style_MediaBlock_Margin - 1,
+			                  (*Block\LastBlock - *Block\FirstBlock + 1) * *Data\Meas_Body_ColumnWidth + 2,
+			                  #Style_MediaBlock_Height + 2, #Style_Body_DefaultColumnWidth)
 			VectorSourceColor( SetAlpha($FF, $F0F0F0))
 			StrokePath(2)
 		EndIf
@@ -998,12 +1018,12 @@ Module PureTL
 		If *Block\FirstBlock >= Index + *Data\Meas_HScrollPosition
 			x = (*Block\FirstBlock - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset
 			If *Block\State = #State_Hot
-				AddPathMediaBlock(x - 1,YPos + #Style_MediaBlock_Margin - 1, Duration * *Data\Meas_Body_ColumnWidth + 2, #Style_MediaBlock_Height + 2, *Data\Meas_Body_ColumnWidth)
+				AddPathMediaBlock(x - 1,YPos + #Style_MediaBlock_Margin - 1, Duration * *Data\Meas_Body_ColumnWidth + 2, #Style_MediaBlock_Height + 2, #Style_Body_DefaultColumnWidth)
 				VectorSourceColor( SetAlpha($FF, $F0F0F0))
 				StrokePath(3)
 			EndIf
 			
-			AddPathMediaBlock(x, YPos + #Style_MediaBlock_Margin, Duration * *Data\Meas_Body_ColumnWidth, #Style_MediaBlock_Height, *Data\Meas_Body_ColumnWidth)
+			AddPathMediaBlock(x, YPos + #Style_MediaBlock_Margin, Duration * *Data\Meas_Body_ColumnWidth, #Style_MediaBlock_Height, #Style_Body_DefaultColumnWidth)
 		Else
 			Index = *Data\Meas_HScrollPosition
 			x = *Data\Meas_Body_HOffset
@@ -1033,16 +1053,16 @@ Module PureTL
 		EndIf
 		StrokePath(2)
 		
-		If *Block\Icon > -1
-			If Duration < 4
-				x - ((4 - Duration) * *Data\Meas_Body_ColumnWidth) 
+		If *Block\Icon > -1 And (*Block\LastBlock - *Block\FirstBlock) * *Data\Meas_Body_ColumnWidth >= #Style_MediaBlock_IconMinimumWidth
+			If Duration * *Data\Meas_Body_ColumnWidth < #Style_MediaBlock_IconMinimumWidth
+				x = *Data\Meas_Body_HOffset + Duration * *Data\Meas_Body_ColumnWidth - (#Style_MediaBlock_IconMinimumWidth)
 			EndIf
 			MaterialVector::Draw(*Block\Icon, x + #Style_MediaBlock_IconXOffset, YPos + #Style_MediaBlock_IconYOffset, #Style_MediaBlock_IconSize, SetAlpha($40, $F0F0F0), 0)
 		EndIf
 		
 		For Loop = Index To LastBlock
 			If *Data\Content_DisplayedLines()\Object\DataPoints(Loop)
-				DrawDataPoint(*Data\Meas_Body_HOffset + (Loop - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + #Style_DataPoint_Size, YPos + #Style_DataPoint_OffsetY)
+				DrawDataPoint(*Data, *Data\Meas_Body_HOffset + (Loop - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth, YPos + #Style_DataPoint_OffsetY)
 			EndIf
 		Next
 		
@@ -1074,7 +1094,7 @@ Module PureTL
 				StrokePath(1.5)
 				Loop + DrawMediaBlock(*Data, YPos, Loop, *Data\Content_DisplayedLines()\Object\Mediablocks(Loop + *Data\Meas_HScrollPosition))
 			ElseIf *Data\Content_DisplayedLines()\Object\DataPoints(Loop + *Data\Meas_HScrollPosition)
-				DrawDataPoint(*Data\Meas_Body_HOffset + Loop * *Data\Meas_Body_ColumnWidth + #Style_DataPoint_Size, YPos + #Style_DataPoint_OffsetY)
+				DrawDataPoint(*Data, *Data\Meas_Body_HOffset + Loop * *Data\Meas_Body_ColumnWidth, YPos + #Style_DataPoint_OffsetY)
 			EndIf
 		Next
 		
@@ -1145,8 +1165,6 @@ Module PureTL
 		
 		DrawVectorText(*Data\Content_DisplayedLines()\Object\Text)
 		
-		
-		
 	EndProcedure
 	
 	Procedure Refit(Gadget)
@@ -1198,7 +1216,7 @@ Module PureTL
 		HideGadget(*Data\Comp_VScrollBar, Bool( Not VScrollBarVisible))
 		HideGadget(*Data\Comp_HScrollBar, Bool( Not HScrollBarVisible))
 		
-		Redraw(Gadget)
+; 		Redraw(Gadget)
 	EndProcedure
 	
 	Procedure RecurciveDelete(*Data.GadgetData, *Line.Line)
@@ -1287,6 +1305,7 @@ Module PureTL
 		EndIf
 		
 		Refit(Gadget)
+		Redraw(Gadget)
 	EndProcedure
 EndModule
 
@@ -1335,7 +1354,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1025
-; FirstLine = 350
-; Folding = vdAgFJZO59B+
+; CursorPosition = 1054
+; FirstLine = 326
+; Folding = vdAAEI5O51B+
 ; EnableXP
