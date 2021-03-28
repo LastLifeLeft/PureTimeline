@@ -34,7 +34,7 @@ DeclareModule PureTL
 	
 	Declare AddDataPoint(Gadget, LineID, Position, Identifier = 0)
 	
-	Declare AddMediaBlock(Gadget, LineID, Start, Finish, Identifier = 0, Image = -1)
+	Declare AddMediaBlock(Gadget, LineID, Start, Finish, Identifier = 0, Icon = -1)
 	
 EndDeclareModule
 
@@ -116,6 +116,9 @@ Module PureTL
 	
 	#Style_MediaBlock_Margin = 3
 	#Style_MediaBlock_Height = #Style_List_LineHeight - 2 * #Style_MediaBlock_Margin
+	#Style_MediaBlock_IconYOffset = 15
+	#Style_MediaBlock_IconXOffset = 10
+	#Style_MediaBlock_IconSize = #Style_List_LineHeight - 2 * #Style_MediaBlock_IconYOffset
 	
 	; Colors
 	#Color_ListBack		= $2F3136
@@ -147,8 +150,7 @@ Module PureTL
 		FirstBlock.i
 		LastBlock.i
 		Identifier.i
-		Image.i
-		ImageID.i
+		Icon.i
 		State.b
 ; 		Test.s		; Could be added?
 		*Line.Line
@@ -628,7 +630,7 @@ Module PureTL
 		Redraw(Gadget)
 	EndProcedure
 	
-	Procedure AddMediaBlock(Gadget, *Line.Line, Start, Finish, Identifier = 0, Image = -1)
+	Procedure AddMediaBlock(Gadget, *Line.Line, Start, Finish, Identifier = 0, Icon = -1)
 		Protected *Data.GadgetData = GetGadgetData(Gadget), *Block.Mediablock = AllocateMemory(SizeOf(Mediablock)), Loop
 		
 		Start + #Style_Body_ColumnMargin
@@ -639,7 +641,8 @@ Module PureTL
 		*Block\Line = *Line
 		*Block\Identifier = Identifier
 		
-		; Gérer l'image...
+		*Block\Icon = Icon
+		
 		For loop = Start To Finish
 			*Line\Mediablocks(Loop) = *Block
 		Next
@@ -984,25 +987,34 @@ Module PureTL
 	Procedure DrawMediaBlock(*Data.GadgetData, YPos, Index, *Block.Mediablock)
 		Protected LastBlock = Min(*Block\LastBlock, *Data\Meas_HScrollPosition + *Data\Meas_VisibleColumns)
 		Protected Duration = LastBlock - *Block\FirstBlock + min(*Block\FirstBlock - *Data\Meas_HScrollPosition, 0) + 1
-		Protected Loop
+		Protected Loop, x
 		
 		If *Block\State = #State_Drag
-			AddPathMediaBlock(Max((*Block\FirstBlock - *Data\Meas_HScrollPosition + *Data\Drag_OffsetX), 0) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset - 1,YPos + #Style_MediaBlock_Margin - 1, (*Block\LastBlock - *Block\FirstBlock + 1) * *Data\Meas_Body_ColumnWidth + 2, #Style_MediaBlock_Height + 2, *Data\Meas_Body_ColumnWidth)
+			AddPathMediaBlock((Max((*Block\FirstBlock + *Data\Drag_OffsetX), 0) - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset - 1,YPos + #Style_MediaBlock_Margin - 1, (*Block\LastBlock - *Block\FirstBlock + 1) * *Data\Meas_Body_ColumnWidth + 2, #Style_MediaBlock_Height + 2, *Data\Meas_Body_ColumnWidth)
 			VectorSourceColor( SetAlpha($FF, $F0F0F0))
 			StrokePath(2)
 		EndIf
 		
 		If *Block\FirstBlock >= Index + *Data\Meas_HScrollPosition
+			x = (*Block\FirstBlock - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset
 			If *Block\State = #State_Hot
-				AddPathMediaBlock((*Block\FirstBlock - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset - 1,YPos + #Style_MediaBlock_Margin - 1, Duration * *Data\Meas_Body_ColumnWidth + 2, #Style_MediaBlock_Height + 2, *Data\Meas_Body_ColumnWidth)
+				AddPathMediaBlock(x - 1,YPos + #Style_MediaBlock_Margin - 1, Duration * *Data\Meas_Body_ColumnWidth + 2, #Style_MediaBlock_Height + 2, *Data\Meas_Body_ColumnWidth)
 				VectorSourceColor( SetAlpha($FF, $F0F0F0))
 				StrokePath(3)
 			EndIf
 			
-			AddPathMediaBlock((*Block\FirstBlock - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset,YPos + #Style_MediaBlock_Margin, Duration * *Data\Meas_Body_ColumnWidth, #Style_MediaBlock_Height, *Data\Meas_Body_ColumnWidth)
+			AddPathMediaBlock(x, YPos + #Style_MediaBlock_Margin, Duration * *Data\Meas_Body_ColumnWidth, #Style_MediaBlock_Height, *Data\Meas_Body_ColumnWidth)
 		Else
 			Index = *Data\Meas_HScrollPosition
-			AddPathBox(*Data\Meas_Body_HOffset, YPos + #Style_MediaBlock_Margin, Duration * *Data\Meas_Body_ColumnWidth, #Style_MediaBlock_Height)
+			x = *Data\Meas_Body_HOffset
+			
+			If *Block\State = #State_Hot
+				AddPathBox(x - 2,YPos + #Style_MediaBlock_Margin - 1, Duration * *Data\Meas_Body_ColumnWidth + 3, #Style_MediaBlock_Height + 2)
+				VectorSourceColor( SetAlpha($FF, $F0F0F0))
+				StrokePath(3)
+			EndIf
+			
+			AddPathBox(*Data\Meas_Body_HOffset - 1, YPos + #Style_MediaBlock_Margin, Duration * *Data\Meas_Body_ColumnWidth + 1, #Style_MediaBlock_Height)
 		EndIf
 		
 		If *Block\State = #State_Cold Or *Block\State = #State_Drag
@@ -1010,7 +1022,7 @@ Module PureTL
 		ElseIf *Block\State = #State_Warm
 			VectorSourceColor( SetAlpha($40, *Data\Content_DisplayedLines()\Object\Color))
 		Else
-			VectorSourceColor( SetAlpha($70, *Data\Content_DisplayedLines()\Object\Color))
+			VectorSourceColor( SetAlpha($60, *Data\Content_DisplayedLines()\Object\Color))
 		EndIf
 		FillPath(#PB_Path_Preserve)
 		
@@ -1020,6 +1032,13 @@ Module PureTL
 			VectorSourceColor( SetAlpha($FF, *Data\Content_DisplayedLines()\Object\Color))
 		EndIf
 		StrokePath(2)
+		
+		If *Block\Icon > -1
+			If Duration < 4
+				x - ((4 - Duration) * *Data\Meas_Body_ColumnWidth) 
+			EndIf
+			MaterialVector::Draw(*Block\Icon, x + #Style_MediaBlock_IconXOffset, YPos + #Style_MediaBlock_IconYOffset, #Style_MediaBlock_IconSize, SetAlpha($40, $F0F0F0), 0)
+		EndIf
 		
 		For Loop = Index To LastBlock
 			If *Data\Content_DisplayedLines()\Object\DataPoints(Loop)
@@ -1038,16 +1057,40 @@ Module PureTL
 	Procedure DrawLine(*Data.GadgetData, YPos, ListIndex, AltBackground)
 		Protected ListFrontColor, ToggleColor, Loop, LoopEnd = *Data\Meas_VisibleColumns
 		
+		; Body
+		;{ Background
 		If AltBackground
 			AddPathBox(*Data\Meas_Body_HOffset, YPos, *Data\Meas_Body_Width, #Style_List_LineHeight)
 			VectorSourceColor(SetAlpha(255,*Data\Colors_BodyAltBack))
 			FillPath()
 		EndIf
+		;}
+		
+		For Loop = 0 To LoopEnd
+			If *Data\Content_DisplayedLines()\Object\Mediablocks(Loop + *Data\Meas_HScrollPosition)
+				VectorSourceColor( $FFF0F0F0)
+				FillPath(#PB_Path_Preserve)
+				VectorSourceColor( $FF000000)
+				StrokePath(1.5)
+				Loop + DrawMediaBlock(*Data, YPos, Loop, *Data\Content_DisplayedLines()\Object\Mediablocks(Loop + *Data\Meas_HScrollPosition))
+			ElseIf *Data\Content_DisplayedLines()\Object\DataPoints(Loop + *Data\Meas_HScrollPosition)
+				DrawDataPoint(*Data\Meas_Body_HOffset + Loop * *Data\Meas_Body_ColumnWidth + #Style_DataPoint_Size, YPos + #Style_DataPoint_OffsetY)
+			EndIf
+		Next
+		
+		VectorSourceColor($FFF0F0F0)
+		FillPath(#PB_Path_Preserve)
+		VectorSourceColor($FF000000)
+		StrokePath(1.5)
 		
 		; List
 		;{ Background
+		AddPathBox(*Data\Meas_List_HOffset, YPos, *Data\Meas_List_Width, #Style_List_LineHeight)
+		VectorSourceColor(SetAlpha($FF ,*Data\Colors_ListBack))
+		FillPath()
+		
 		If ListIndex = *Data\State_HotLine
-			AddPathBox(*Data\Meas_List_HOffset, YPos, *Data\Meas_List_Width + *Data\Meas_Body_Width, #Style_List_LineHeight)
+			AddPathBox(*Data\Meas_List_HOffset, YPos, *Data\Meas_List_Width, #Style_List_LineHeight)
 			VectorSourceColor(SetAlpha(#Color_Blending_Back_Hot ,*Data\Colors_ListFront))
 			FillPath()
 			ListFrontColor = SetAlpha(#Color_Blending_Front_Hot ,*Data\Colors_ListFront)
@@ -1102,23 +1145,8 @@ Module PureTL
 		
 		DrawVectorText(*Data\Content_DisplayedLines()\Object\Text)
 		
-		; Body
-		For Loop = 0 To LoopEnd
-			If *Data\Content_DisplayedLines()\Object\Mediablocks(Loop + *Data\Meas_HScrollPosition)
-				VectorSourceColor( $FFF0F0F0)
-				FillPath(#PB_Path_Preserve)
-				VectorSourceColor( $FF000000)
-				StrokePath(1.5)
-				Loop + DrawMediaBlock(*Data, YPos, Loop, *Data\Content_DisplayedLines()\Object\Mediablocks(Loop + *Data\Meas_HScrollPosition))
-			ElseIf *Data\Content_DisplayedLines()\Object\DataPoints(Loop + *Data\Meas_HScrollPosition)
-				DrawDataPoint(*Data\Meas_Body_HOffset + Loop * *Data\Meas_Body_ColumnWidth + #Style_DataPoint_Size, YPos + #Style_DataPoint_OffsetY)
-			EndIf
-		Next
 		
-		VectorSourceColor($FFF0F0F0)
-		FillPath(#PB_Path_Preserve)
-		VectorSourceColor($FF000000)
-		StrokePath(1.5)
+		
 	EndProcedure
 	
 	Procedure Refit(Gadget)
@@ -1307,7 +1335,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 710
-; FirstLine = 333
-; Folding = vdAgHJZO5gA-
+; CursorPosition = 1025
+; FirstLine = 350
+; Folding = vdAgFJZO59B+
 ; EnableXP
