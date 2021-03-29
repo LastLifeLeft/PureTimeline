@@ -262,6 +262,10 @@ Module PureTL
 		*State_WarmMediaBlock.Mediablock
 		List *State_HotMediaBlocks.Mediablock()
 		
+		; Player
+		Player_Enabled.b
+		Player_Position.i
+		
 		; Drag
 		Drag_MediaBlock.i
 		Drag_DataPoint.i
@@ -1025,7 +1029,7 @@ Module PureTL
 	EndProcedure
 	
 	Procedure HandlerPlayButton(Gadget)
-		Debug "plop"
+		
 	EndProcedure
 	
 	Procedure ScrollVertical(Gadget)
@@ -1425,8 +1429,6 @@ Module PureTL
 		Protected Loop, NewFirstBlock, NewLastBlock, ResultOffset, Success, TargetOffset
 		Protected Offset
 		
-		Debug Start
-		
 		For loop = *Block\FirstBlock To *Block\LastBlock
 			*Block\Line\MediaBlocks(Loop) = 0
 		Next
@@ -1540,7 +1542,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 820
-; FirstLine = 322
+; CursorPosition = 1430
+; FirstLine = 403
 ; Folding = vdAAIgdAzJOcQ-
 ; EnableXP
