@@ -391,7 +391,7 @@ Module PureTL
 			EndIf
 		EndIf
 	EndMacro
-	Macro Focus
+	Macro VerticalFocus
 		If *Data\State_HotLine < *Data\Meas_VScrollPosition
 			*Data\Meas_VScrollPosition = *Data\State_HotLine
 			SetGadgetState(*Data\Comp_VScrollBar, *Data\Meas_VScrollPosition)
@@ -399,6 +399,9 @@ Module PureTL
 			*Data\Meas_VScrollPosition = *Data\State_HotLine - *Data\Meas_VisibleLines + 1
 			SetGadgetState(*Data\Comp_VScrollBar, *Data\Meas_VScrollPosition)
 		EndIf
+	EndMacro
+	Macro HorizontalFocus
+		
 	EndMacro
 	Macro MakeSpace(Block1, Block2, Direction) ; Recurcively move any blocs on the way /!\Marked for cleanup/!\ This macro was a mistake and makes everything harder to read and understand. 
 		For loop = New#Block2#Block To New#Block1#Block Step Direction
@@ -433,6 +436,8 @@ Module PureTL
 	Declare HandlerHScrollbar()
 	Declare HandlerVScrollbar()
 	Declare HandlerPlayButton(Gadget)
+	Declare HandlerStartButton(Gadget)
+	Declare HandlerEndButton(Gadget)
 	Declare ScrollVertical(Gadget)
 	Declare ScrollHorizontal(Gadget)
 	Declare Redraw(Gadget)
@@ -501,16 +506,19 @@ Module PureTL
 				                                              (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
 				                                              #Style_Header_ButtonSize, MaterialVector::#Skip,
 				                                              CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme | MaterialVector::#style_rotate_180)
-				CanvasButton::SetColor(\Comp_StartButton, CanvasButton::#ColorType_BackWarm, \Colors_BodyBack)
-				CanvasButton::SetColor(\Comp_StartButton, CanvasButton::#ColorType_BackHot, \Colors_BodyBack)
+				CanvasButton::SetColor(\Comp_StartButton, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_BodyBack))
+				CanvasButton::SetColor(\Comp_StartButton, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_BodyBack))
+				CanvasButton::SetData(\Comp_StartButton, Gadget)
+				CanvasButton::BindEventHandler(\Comp_StartButton, @HandlerStartButton())
 				
 				\Comp_PlayButton = CanvasButton::GadgetImage(#PB_Any,
 				                                              (#Style_List_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5 + #Style_Header_ButtonSize + #Style_Header_ButtonSpace,
 				                                              (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
 				                                              #Style_Header_ButtonSize, MaterialVector::#Play,
 				                                              CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme)
-				CanvasButton::SetColor(\Comp_PlayButton, CanvasButton::#ColorType_BackWarm, \Colors_BodyBack)
-				CanvasButton::SetColor(\Comp_PlayButton, CanvasButton::#ColorType_BackHot, \Colors_BodyBack)
+				CanvasButton::SetColor(\Comp_PlayButton, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_BodyBack))
+				CanvasButton::SetColor(\Comp_PlayButton, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_BodyBack))
+				CanvasButton::SetData(\Comp_PlayButton, Gadget)
 				CanvasButton::BindEventHandler(\Comp_PlayButton, @HandlerPlayButton())
 				
 				\Comp_EndButton = CanvasButton::GadgetImage(#PB_Any,
@@ -518,8 +526,10 @@ Module PureTL
 				                                              (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
 				                                              #Style_Header_ButtonSize, MaterialVector::#Skip,
 				                                              CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme)
-				CanvasButton::SetColor(\Comp_EndButton, CanvasButton::#ColorType_BackWarm, \Colors_BodyBack)
-				CanvasButton::SetColor(\Comp_EndButton, CanvasButton::#ColorType_BackHot, \Colors_BodyBack)
+				CanvasButton::SetColor(\Comp_EndButton, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_BodyBack))
+				CanvasButton::SetColor(\Comp_EndButton, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_BodyBack))
+				CanvasButton::SetData(\Comp_EndButton, Gadget)
+				CanvasButton::BindEventHandler(\Comp_EndButton, @HandlerEndButton())
 			EndWith
 			
 			CloseGadgetList()
@@ -972,7 +982,7 @@ Module PureTL
 						CompilerIf #Func_LineSelection
 							If *Data\State_HotLine > 0
 								*Data\State_HotLine - 1
-								Focus
+								VerticalFocus
 								Redraw = #True
 							EndIf
 						CompilerElse
@@ -986,7 +996,7 @@ Module PureTL
 						CompilerIf #Func_LineSelection
 							If *Data\State_HotLine < ListSize(*Data\Content_DisplayedLines()) - 1
 								*Data\State_HotLine + 1
-								Focus
+								VerticalFocus
 								Redraw = #True
 							EndIf
 						CompilerElse
@@ -1028,8 +1038,42 @@ Module PureTL
 		EndIf
 	EndProcedure
 	
-	Procedure HandlerPlayButton(Gadget)
+	Procedure HandlerPlayButton(Button)
+		Protected Gadget = CanvasButton::GetData(Button), *Data.GadgetData = GetGadgetData(Gadget)
 		
+		If *Data\Player_Enabled
+			*Data\Player_Enabled = #False
+			CanvasButton::SetImage(Button, MaterialVector::#Play)
+		Else
+			*Data\Player_Enabled = #True
+			CanvasButton::SetImage(Button, MaterialVector::#Pause)
+		EndIf
+		
+		SetActiveGadget(Gadget)
+	EndProcedure
+	
+	Procedure HandlerStartButton(Button)
+		Protected Gadget = CanvasButton::GetData(Button), *Data.GadgetData = GetGadgetData(Gadget)
+		
+		*Data\Player_Position = #Style_Body_ColumnMargin
+		SetGadgetState(*Data\Comp_HScrollbar, 0)
+		*Data\Meas_HScrollPosition = 0
+		Redraw(Gadget)
+		SetActiveGadget(Gadget)
+	EndProcedure
+	
+	Procedure HandlerEndButton(Button)
+		Protected Gadget = CanvasButton::GetData(Button), *Data.GadgetData = GetGadgetData(Gadget)
+		
+		*Data\Player_Position = *Data\Content_Duration - #Style_Body_ColumnMargin
+		SetGadgetState(*Data\Comp_HScrollbar, *Data\Content_Duration)
+		*Data\Meas_HScrollPosition = GetGadgetState(*Data\Comp_HScrollbar)
+		If *Data\Player_Enabled
+			*Data\Player_Enabled = #False
+			CanvasButton::SetImage(*Data\Comp_PlayButton, MaterialVector::#Play)
+		EndIf
+		Redraw(Gadget)
+		SetActiveGadget(Gadget)
 	EndProcedure
 	
 	Procedure ScrollVertical(Gadget)
@@ -1542,7 +1586,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1430
-; FirstLine = 403
-; Folding = vdAAIgdAzJOcQ-
+; CursorPosition = 1053
+; FirstLine = 321
+; Folding = vdEAAA8AmCwhD7
 ; EnableXP
