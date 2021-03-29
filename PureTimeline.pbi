@@ -328,8 +328,64 @@ Module PureTL
 		EndIf
 		
 	EndMacro
-	Macro MouseMouve
-		
+	Macro MouseMove
+		MouseX - *Data\Meas_Body_HOffset
+		Column = Round(MouseX / *Data\Meas_Body_ColumnWidth, #PB_Round_Down) + *Data\Meas_HScrollPosition
+		If Column > *Data\Content_Duration
+			CoolDown
+		Else
+			SelectElement(*Data\Content_DisplayedLines(), Line)
+			If (MouseY > #Style_MediaBlock_Margin And MouseY < #Style_List_LineHeight - #Style_MediaBlock_Margin)
+				If *Data\Content_DisplayedLines()\Object\Mediablocks(Column) 
+					If *Data\State_WarmMediaBlock <> *Data\Content_DisplayedLines()\Object\Mediablocks(Column)
+						CoolDown
+						*Data\State_WarmMediaBlock = *Data\Content_DisplayedLines()\Object\Mediablocks(Column)
+						If *Data\State_WarmMediaBlock\State = #State_Cold
+							*Data\State_WarmMediaBlock\State = #State_Warm
+							Redraw = #True
+						EndIf
+					EndIf
+					
+					If *Data\State_WarmMediaBlock\State = #State_Hot
+						If Abs(MouseX - ((*Data\State_WarmMediaBlock\FirstBlock - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth)) <= 3
+							*Data\Resize_State = #Resize_Hover
+							*Data\Resize_Direction = #Resize_Start
+							SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
+						ElseIf Abs(MouseX - ((*Data\State_WarmMediaBlock\LastBlock - *Data\Meas_HScrollPosition + 1) * *Data\Meas_Body_ColumnWidth)) <= 3
+							*Data\Resize_State = #Resize_Hover
+							SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
+							*Data\Resize_Direction = #Resize_End
+						ElseIf *Data\Resize_State = #Resize_Hover
+							*Data\Resize_State = #Resize_None
+							SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
+						EndIf
+					EndIf
+					
+				Else
+					If Column > 0 And *Data\Content_DisplayedLines()\Object\Mediablocks(Column - 1) And *Data\Content_DisplayedLines()\Object\Mediablocks(Column - 1)\State = #State_Hot
+						If Abs(MouseX - (Column - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth) <= 3
+							*Data\Resize_State = #Resize_Hover
+							*Data\Resize_Direction = #Resize_End
+							SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
+						Else
+							CoolDown
+						EndIf
+					ElseIf Column < *Data\Content_Duration And *Data\Content_DisplayedLines()\Object\Mediablocks(Column + 1) And *Data\Content_DisplayedLines()\Object\Mediablocks(Column + 1)\State = #State_Hot
+						If Abs(MouseX - ((Column + 1 - *Data\Meas_HScrollPosition)  * *Data\Meas_Body_ColumnWidth)) <= 4
+							*Data\Resize_State = #Resize_Hover
+							*Data\Resize_Direction = #Resize_Start
+							SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
+						Else
+							CoolDown
+						EndIf
+					Else
+						CoolDown
+					EndIf
+				EndIf
+			Else
+				CoolDown
+			EndIf
+		EndIf
 	EndMacro
 	Macro Focus
 		If *Data\State_HotLine < *Data\Meas_VScrollPosition
@@ -339,6 +395,21 @@ Module PureTL
 			*Data\Meas_VScrollPosition = *Data\State_HotLine - *Data\Meas_VisibleLines + 1
 			SetGadgetState(*Data\Comp_VScrollBar, *Data\Meas_VScrollPosition)
 		EndIf
+	EndMacro
+	Macro MakeSpace(Block1, Block2, Direction) ; Recurcively move any blocs on the way /!\Marked for cleanup/!\ This macro was a mistake and makes everything harder to read and understand. 
+		For loop = New#Block2#Block To New#Block1#Block Step Direction
+			If *Block\Line\MediaBlocks(Loop)
+				TargetOffset = New#Block2#Block - *Block\Line\MediaBlocks(Loop)\Block1#Block - Direction
+				ResultOffset = MoveMediaBlock(*Block\Line\MediaBlocks(Loop), TargetOffset)
+				
+				If Not ResultOffset = TargetOffset
+					Offset = Offset - (TargetOffset - ResultOffset)
+					Success = #False
+					Break
+				EndIf
+				
+			EndIf
+		Next
 	EndMacro
 	
 	Procedure Min(a, b)
@@ -357,6 +428,7 @@ Module PureTL
 	Declare HandlerCanvas()
 	Declare HandlerHScrollbar()
 	Declare HandlerVScrollbar()
+	Declare HandlerPlayButton(Gadget)
 	Declare ScrollVertical(Gadget)
 	Declare ScrollHorizontal(Gadget)
 	Declare Redraw(Gadget)
@@ -367,7 +439,7 @@ Module PureTL
 	Declare RecurciveUnFold(*Data.GadgetData, *Line.Line)
 	Declare ResizeMB(*Block.MediaBlock, Start, Finish)
 	Declare ToggleFold(Gadget, Item)
-	Declare MoveMediaBlock(*Data.GadgetData, *Block.MediaBlock, Offset)
+	Declare MoveMediaBlock(*Block.MediaBlock, Offset)
 	
 	; Public procedures
 	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #Default)
@@ -435,6 +507,7 @@ Module PureTL
 				                                              CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme)
 				CanvasButton::SetColor(\Comp_PlayButton, CanvasButton::#ColorType_BackWarm, \Colors_BodyBack)
 				CanvasButton::SetColor(\Comp_PlayButton, CanvasButton::#ColorType_BackHot, \Colors_BodyBack)
+				CanvasButton::BindEventHandler(\Comp_PlayButton, @HandlerPlayButton())
 				
 				\Comp_EndButton = CanvasButton::GadgetImage(#PB_Any,
 				                                              (#Style_List_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5 + #Style_Header_ButtonSize * 2 + #Style_Header_ButtonSpace * 2,
@@ -451,7 +524,6 @@ Module PureTL
 			Redraw(Gadget)
 			BindGadgetEvent(Gadget, @HandlerCanvas())
 		EndIf
-		
 		
 		ProcedureReturn Result
 	EndProcedure
@@ -607,28 +679,42 @@ Module PureTL
 	EndProcedure
 	
 	; Private procedures
-	Procedure MoveMediaBlock(*Data.GadgetData, *Block.MediaBlock, Offset)
+	Procedure MoveMediaBlock(*Block.MediaBlock, Offset)
 		Protected BlockDuration = *Block\LastBlock - *Block\FirstBlock + 1, loop
+		Protected NewFirstBlock, NewLastBlock, Success, TargetOffset, ResultOffset
 		
 		For loop = *Block\FirstBlock To *Block\LastBlock
 			*Block\Line\MediaBlocks(Loop) = 0
 		Next
 		
-		If *Block\FirstBlock + Offset < 0
-			Offset = -*Block\FirstBlock
+		If *Block\FirstBlock + Offset < #Style_Body_ColumnMargin
+			Offset = #Style_Body_ColumnMargin - *Block\FirstBlock 
 		EndIf
 		
-		If *Block\LastBlock + Offset > *Data\Content_Duration
-			Offset = *Data\Content_Duration - *Block\LastBlock
+		If *Block\LastBlock + Offset > ArraySize(*Block\Line\MediaBlocks()) - 2
+			Offset = ArraySize(*Block\Line\MediaBlocks()) - *Block\LastBlock - 2
 		EndIf
 		
-		*Block\LastBlock + Offset
-		*Block\FirstBlock + Offset
+		Repeat
+			Success = #True
+			NewFirstBlock =  *Block\FirstBlock + Offset
+			NewLastBlock = *Block\LastBlock + Offset
+			
+			If Offset > 0
+				MakeSpace(First, Last, -1)
+			Else
+				MakeSpace(Last, First, 1)
+			EndIf
+		Until Success = #True
+		
+		*Block\FirstBlock = NewFirstBlock
+		*Block\LastBlock =  NewLastBlock
 		
 		For loop = *Block\FirstBlock To *Block\LastBlock
 			*Block\Line\MediaBlocks(Loop) = *Block
 		Next
 		
+		ProcedureReturn Offset
 	EndProcedure
 	
 	Procedure HandlerCanvas()
@@ -718,65 +804,7 @@ Module PureTL
 							CompilerEndIf
 							;}
 						Else ;{ body
-							MouseX - *Data\Meas_Body_HOffset
-							Column = Round(MouseX / *Data\Meas_Body_ColumnWidth, #PB_Round_Down) + *Data\Meas_HScrollPosition
-							If Column > *Data\Content_Duration
-								CoolDown
-							Else
-								SelectElement(*Data\Content_DisplayedLines(), Line)
-								If (MouseY > #Style_MediaBlock_Margin And MouseY < #Style_List_LineHeight - #Style_MediaBlock_Margin)
-									If *Data\Content_DisplayedLines()\Object\Mediablocks(Column) 
-									   If *Data\State_WarmMediaBlock <> *Data\Content_DisplayedLines()\Object\Mediablocks(Column)
-											CoolDown
-											*Data\State_WarmMediaBlock = *Data\Content_DisplayedLines()\Object\Mediablocks(Column)
-											If *Data\State_WarmMediaBlock\State = #State_Cold
-												*Data\State_WarmMediaBlock\State = #State_Warm
-												Redraw = #True
-											EndIf
-										EndIf
-										
-										If *Data\State_WarmMediaBlock\State = #State_Hot
-											If Abs(MouseX - ((*Data\State_WarmMediaBlock\FirstBlock - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth)) <= 3
-												*Data\Resize_State = #Resize_Hover
-												*Data\Resize_Direction = #Resize_Start
-												SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
-											ElseIf Abs(MouseX - ((*Data\State_WarmMediaBlock\LastBlock - *Data\Meas_HScrollPosition + 1) * *Data\Meas_Body_ColumnWidth)) <= 3
-												*Data\Resize_State = #Resize_Hover
-												SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
-												*Data\Resize_Direction = #Resize_End
-											ElseIf *Data\Resize_State = #Resize_Hover
-												*Data\Resize_State = #Resize_None
-												SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
-											EndIf
-										EndIf
-										
-									Else
-; 										Column + *Data\Meas_HScrollPosition
-										
-										If Column > 0 And *Data\Content_DisplayedLines()\Object\Mediablocks(Column - 1) And *Data\Content_DisplayedLines()\Object\Mediablocks(Column - 1)\State = #State_Hot
-											If Abs(MouseX - (Column - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth) <= 3
-												*Data\Resize_State = #Resize_Hover
-												*Data\Resize_Direction = #Resize_End
-												SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
-											Else
-												CoolDown
-											EndIf
-										ElseIf Column < *Data\Content_Duration And *Data\Content_DisplayedLines()\Object\Mediablocks(Column + 1) And *Data\Content_DisplayedLines()\Object\Mediablocks(Column + 1)\State = #State_Hot
-											If Abs(MouseX - ((Column + 1 - *Data\Meas_HScrollPosition)  * *Data\Meas_Body_ColumnWidth)) <= 4
-												*Data\Resize_State = #Resize_Hover
-												*Data\Resize_Direction = #Resize_Start
-												SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
-											Else
-												CoolDown
-											EndIf
-										Else
-											CoolDown
-										EndIf
-									EndIf
-								Else
-									CoolDown
-								EndIf
-							EndIf
+							MouseMove
 						EndIf ;}
 					EndIf
 				EndIf;}
@@ -788,9 +816,9 @@ Module PureTL
 					*Data\Resize_State = #Resize_None
 					ForEach *Data\State_HotMediaBlocks()
 						If *Data\Resize_Direction = #Resize_Start
-							ResizeMB(*Data\State_HotMediaBlocks(), Min(max(*Data\State_HotMediaBlocks()\FirstBlock + *Data\Resize_Offset, 0), *Data\State_HotMediaBlocks()\LastBlock - 1), *Data\State_HotMediaBlocks()\LastBlock)
+							ResizeMB(*Data\State_HotMediaBlocks(), Min(max(*Data\State_HotMediaBlocks()\FirstBlock + *Data\Resize_Offset, #Style_Body_ColumnMargin), *Data\State_HotMediaBlocks()\LastBlock - 1), *Data\State_HotMediaBlocks()\LastBlock)
 						Else
-							ResizeMB(*Data\State_HotMediaBlocks(), *Data\State_HotMediaBlocks()\FirstBlock, max(Min(*Data\State_HotMediaBlocks()\LastBlock + *Data\Resize_Offset, *Data\Content_Duration), *Data\State_HotMediaBlocks()\FirstBlock + 1))
+							ResizeMB(*Data\State_HotMediaBlocks(), *Data\State_HotMediaBlocks()\FirstBlock, max(Min(*Data\State_HotMediaBlocks()\LastBlock + *Data\Resize_Offset, *Data\Content_Duration - 2 * #Style_Body_ColumnMargin), *Data\State_HotMediaBlocks()\FirstBlock + 1))
 						EndIf
 						*Data\State_HotMediaBlocks()\State = #State_Hot
 					Next
@@ -819,14 +847,13 @@ Module PureTL
 					*Data\Drag_MediaBlock = #Drag_None ;}
 				ElseIf *Data\Drag_MediaBlock = #Drag_Movement ;{
 					ForEach *Data\State_HotMediaBlocks()
-						MoveMediaBlock(*Data, *Data\State_HotMediaBlocks(), *Data\Drag_OffsetX)
+						MoveMediaBlock(*Data\State_HotMediaBlocks(), *Data\Drag_OffsetX)
 						*Data\State_HotMediaBlocks()\State = #State_Hot
 					Next
-					
-					Redraw = #True
-					
 					SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
 					*Data\Drag_MediaBlock = #Drag_None
+					*Data\Drag_OffsetX = 0
+					Redraw = #True
 				EndIf 
 				;}
 				*Data\Drag_MediaBlock_Unselect = 0
@@ -925,12 +952,12 @@ Module PureTL
 				If (GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control)
 					*Data\Meas_Body_ColumnWidth = Max(*Data\Meas_Body_ColumnWidth + GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta), #Style_Body_MinimumColumnWidth)
 					Refit(Gadget)
-					MouseMouve
+					MouseMove
 					Redraw = #True
 				Else
 					SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
 					If ScrollVertical(Gadget)
-						MouseMouve
+						MouseMove
 						Redraw = #True
 					EndIf
 				EndIf
@@ -947,7 +974,7 @@ Module PureTL
 						CompilerElse
 							SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) - 1)
 							If ScrollVertical(Gadget)
-								MouseMouve
+								MouseMove
 								Redraw = #True
 							EndIf
 						CompilerEndIf
@@ -961,7 +988,7 @@ Module PureTL
 						CompilerElse
 							SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) + 1)
 							If ScrollVertical(Gadget)
-								MouseMouve
+								MouseMove
 								Redraw = #True
 							EndIf
 						CompilerEndIf
@@ -995,6 +1022,10 @@ Module PureTL
 		If ScrollVertical(Gadget)
 			Redraw(Gadget)
 		EndIf
+	EndProcedure
+	
+	Procedure HandlerPlayButton(Gadget)
+		Debug "plop"
 	EndProcedure
 	
 	Procedure ScrollVertical(Gadget)
@@ -1101,7 +1132,7 @@ Module PureTL
 		Protected Loop, x
 		
 		If *Block\State = #State_Drag
-			AddPathMediaBlock((Max((*Block\FirstBlock + *Data\Drag_OffsetX), 0) - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset - 1,
+			AddPathMediaBlock((Max((*Block\FirstBlock + *Data\Drag_OffsetX), #Style_Body_ColumnMargin) - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset - 1,
 			                  YPos + #Style_MediaBlock_Margin - 1,
 			                  (*Block\LastBlock - *Block\FirstBlock + 1) * *Data\Meas_Body_ColumnWidth + 2,
 			                  #Style_MediaBlock_Height + 2, #Style_Body_DefaultColumnWidth)
@@ -1111,11 +1142,11 @@ Module PureTL
 			Protected Resize_FirstBlock, Resize_LastBlock
 			
 			If *Data\Resize_Direction = #Resize_Start
-				Resize_FirstBlock = Max(Min(*Block\FirstBlock + *Data\Resize_Offset, *Block\LastBlock - 1), 0)
+				Resize_FirstBlock = Max(Min(*Block\FirstBlock + *Data\Resize_Offset, *Block\LastBlock - 1), #Style_Body_ColumnMargin)
 				Resize_LastBlock = *Block\LastBlock
 			Else
 				Resize_FirstBlock = *Block\FirstBlock
-				Resize_LastBlock = min(Max(*Block\LastBlock + *Data\Resize_Offset, *Block\FirstBlock +1), *Data\Content_Duration)
+				Resize_LastBlock = min(Max(*Block\LastBlock + *Data\Resize_Offset, *Block\FirstBlock +1), *Data\Content_Duration - #Style_Body_ColumnMargin * 2)
 			EndIf
 			
 			AddPathMediaBlock((Max(Resize_FirstBlock, 0) - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth + *Data\Meas_Body_HOffset - 1,
@@ -1189,7 +1220,7 @@ Module PureTL
 	EndProcedure
 	
 	Procedure DrawLine(*Data.GadgetData, YPos, ListIndex, AltBackground)
-		Protected ListFrontColor, ToggleColor, Loop, LoopEnd = *Data\Meas_VisibleColumns
+		Protected ListFrontColor, ToggleColor, Loop, NewLastBlock = *Data\Meas_VisibleColumns
 		
 		; Body
 		;{ Background
@@ -1200,7 +1231,7 @@ Module PureTL
 		EndIf
 		;}
 		
-		For Loop = 0 To LoopEnd
+		For Loop = 0 To NewLastBlock
 			If *Data\Content_DisplayedLines()\Object\Mediablocks(Loop + *Data\Meas_HScrollPosition)
 				VectorSourceColor( $FFF0F0F0)
 				FillPath(#PB_Path_Preserve)
@@ -1391,11 +1422,37 @@ Module PureTL
 	EndProcedure
 	
 	Procedure ResizeMB(*Block.MediaBlock, Start, Finish)
-		Protected Loop
+		Protected Loop, NewFirstBlock, NewLastBlock, ResultOffset, Success, TargetOffset
+		Protected Offset
+		
+		Debug Start
 		
 		For loop = *Block\FirstBlock To *Block\LastBlock
 			*Block\Line\MediaBlocks(Loop) = 0
 		Next
+		
+		;Make place on the left
+		If Start < *Block\FirstBlock
+			Offset = Start - *Block\FirstBlock
+			NewLastBlock = *Block\FirstBlock
+			Repeat
+				Success = #True
+				NewFirstBlock = NewLastBlock + Offset
+				MakeSpace(Last, First, 1)
+			Until Success = #True
+			Start = *Block\FirstBlock + Offset
+		EndIf
+		
+		If Finish > *Block\LastBlock
+			Offset = Finish - *Block\LastBlock
+			NewFirstBlock = *Block\LastBlock
+			Repeat
+				Success = #True
+				NewLastBlock = NewFirstBlock + Offset
+				MakeSpace(First, Last, -1)
+			Until Success = #True
+			Finish = *Block\LastBlock + Offset
+		EndIf
 		
 		*Block\FirstBlock = Start
 		*Block\LastBlock = Finish
@@ -1403,7 +1460,6 @@ Module PureTL
 		For loop = *Block\FirstBlock To *Block\LastBlock
 			*Block\Line\MediaBlocks(Loop) = *Block
 		Next
-		
 	EndProcedure
 	
 	Procedure ToggleFold(Gadget, Item)
@@ -1484,7 +1540,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 764
-; FirstLine = 374
-; Folding = v0BANwAg6gDH1
+; CursorPosition = 820
+; FirstLine = 322
+; Folding = vdAAIgdAzJOcQ-
 ; EnableXP
