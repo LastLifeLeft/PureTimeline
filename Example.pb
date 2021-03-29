@@ -28,6 +28,7 @@ PureTL::AddLine(0, -1, "Line 7")
 
 Line = PureTL::GetLineID(0, 0)
 PureTL::AddMediaBlock(0, Line, 3, 6)
+PureTL::AddMediaBlock(0, Line, 11, 19)
 Line = PureTL::GetLineID(0, 1)
 PureTL::AddMediaBlock(0, Line, 3, 21, 0, MaterialVector::#Video)
 Line = PureTL::GetLineID(0, 2)
@@ -42,7 +43,7 @@ PureTL::AddDataPoint(0, Line, 44)
 PureTL::AddMediaBlock(0, Line, 12, 32)
 
 Line = PureTL::GetLineID(0, 4)
- PureTL::AddMediaBlock(0, Line, 3, 21)
+ PureTL::AddMediaBlock(0, Line, 3, 21, 0, MaterialVector::#Accessibility)
 Line = PureTL::GetLineID(0, 5)
 PureTL::AddMediaBlock(0, Line, 3, 21)
 Line = PureTL::GetLineID(0, 6)
@@ -57,6 +58,6 @@ Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 33
-; Folding = 0
+; CursorPosition = 29
+; Folding = 9
 ; EnableXP
