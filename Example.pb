@@ -9,6 +9,7 @@ Procedure Handler_SizeWindow()
 EndProcedure
 
 OpenWindow(0, 0, 0, 700, 400, "PureTimeline Example", #PB_Window_SystemMenu | #PB_Window_ScreenCentered | #PB_Window_SizeGadget)
+SmartWindowRefresh(0, #True)
 PureTL::Gadget(0, 10, 10, 680, 380)
 PureTL::Freeze(0, #True)
 PureTL::AddLine(0, -1, "Line 1")
@@ -58,6 +59,6 @@ Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 29
+; CursorPosition = 18
 ; Folding = 9
 ; EnableXP
