@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-29 21:34" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-31 04:58" user="poshu" host="MINIMONSTRO"/>
   </section>
   <section name="files">
     <file name="CanvasButton\CanvasButton.pbi">
@@ -17,7 +17,7 @@
     </file>
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="e3abe77556bf77c48fe9e04e48264864"/>
+      <fingerprint md5="e0585748c2deca4257d68ce528c0402d"/>
     </file>
     <file name="MaterialVector\MaterialVector.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
@@ -25,7 +25,7 @@
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="2fcf4bc639640b813c639be040a9048e"/>
+      <fingerprint md5="93b402e68cb18e0634a83214afa5fdfd"/>
     </file>
   </section>
   <section name="targets">
@@ -33,7 +33,7 @@
       <inputfile value="Example.pb"/>
       <outputfile value="PureTimeline Example.exe"/>
       <executable value="PureTimeline Example.exe"/>
-      <options xpskin="1" debug="1"/>
+      <options xpskin="1"/>
       <format exe="default" cpu="5"/>
     </target>
   </section>

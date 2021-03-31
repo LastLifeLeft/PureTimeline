@@ -107,6 +107,7 @@ Module PureTL
 	; Functionality
 	#Func_LineSelection = #False
 	#Func_DefaultDuration = 360
+	#Func_DragScrollStep = 2
 	
 	; Style
 	#Style_Header_Height = 60
@@ -804,6 +805,36 @@ Module PureTL
 							
 						EndIf
 					EndIf ;}
+				ElseIf *Data\Player_State = #Player_Drag ;{
+					If (MouseX) < *Data\Meas_Body_HOffset
+						*Data\Player_Step + 1
+						If *Data\Player_Step = #Func_DragScrollStep
+							*Data\Player_Step = 0
+							If *Data\Meas_HScrollPosition > 0
+								SetGadgetState(*Data\Comp_HScrollbar, *Data\Meas_HScrollPosition - 1)
+								*Data\Player_Position = Max(*Data\Meas_HScrollPosition - 1, #Style_Body_ColumnMargin)
+								If ScrollHorizontal(Gadget)
+									Redraw(Gadget)
+								EndIf
+							EndIf
+						EndIf
+					ElseIf (MouseX) > GadgetWidth(Gadget) - *Data\Meas_VScrollBarWidth * *Data\Meas_VScrollBarVisible
+						*Data\Player_Step + 1
+						If *Data\Player_Step = #Func_DragScrollStep
+							*Data\Player_Step = 0
+							If *Data\Meas_HScrollPosition + *Data\Meas_VisibleColumns < *Data\Content_Duration
+								SetGadgetState(*Data\Comp_HScrollbar, *Data\Meas_HScrollPosition + 1)
+								*Data\Player_Position = Min(*Data\Meas_HScrollPosition + *Data\Meas_VisibleColumns + 1, *Data\Content_Duration - #Style_Body_ColumnMargin)
+								If ScrollHorizontal(Gadget)
+									Redraw(Gadget)
+								EndIf
+							EndIf
+						EndIf
+					Else
+						*Data\Player_Position = Min(Max(Round((MouseX - *Data\Meas_Body_HOffset) / *Data\Meas_Body_ColumnWidth, #PB_Round_Down) + *Data\Meas_HScrollPosition, #Style_Body_ColumnMargin), *Data\Content_Duration - #Style_Body_ColumnMargin)
+						Redraw(Gadget)
+					EndIf
+					;}
 				Else
 					If MouseY <= *Data\Meas_Header_Height ;{ Header
 						MouseX - *Data\Meas_Body_HOffset
@@ -910,6 +941,9 @@ Module PureTL
 					*Data\Drag_MediaBlock = #Drag_None
 					*Data\Drag_OffsetX = 0
 					Redraw = #True
+				ElseIf *Data\Player_State = #Player_Drag ;{
+					*Data\Player_State = #Player_None
+					;}
 				EndIf 
 				;}
 				*Data\Drag_MediaBlock_Unselect = 0
@@ -918,7 +952,8 @@ Module PureTL
 			Case #PB_EventType_LeftButtonDown ;{
 				If MouseY <= *Data\Meas_Header_Height ;{ Header
 					If *Data\Player_State = #Player_Hover
-						
+						*Data\Player_State = #Player_Drag
+						*Data\Player_Step = 0
 					EndIf
 				Else ;}
 					If MouseX <= *Data\Meas_List_Width ;{ List
@@ -1279,9 +1314,7 @@ Module PureTL
 	
 	Procedure DrawDataPoint(*Data.GadgetData, x, y)
 		If *Data\Meas_Body_ColumnWidth < 10
-			If *Data\Meas_Body_ColumnWidth > 5
-				AddPathCircle(x + (*Data\Meas_Body_ColumnWidth - 2 * #Style_DataPoint_SizeMedium) * 0.5, y, #Style_DataPoint_SizeMedium)
-			EndIf
+			AddPathCircle(x + (*Data\Meas_Body_ColumnWidth - 2 * #Style_DataPoint_SizeMedium) * 0.5, y, #Style_DataPoint_SizeMedium)
 		Else
 			MovePathCursor(x + (*Data\Meas_Body_ColumnWidth - 2 * #Style_DataPoint_SizeBig) * 0.5, y - #Style_DataPoint_SizeBig)
 			AddPathLine(- #Style_DataPoint_SizeBig, #Style_DataPoint_SizeBig, #PB_Relative)
@@ -1378,11 +1411,13 @@ Module PureTL
 			MaterialVector::Draw(*Block\Icon, x + #Style_MediaBlock_IconXOffset, YPos + #Style_MediaBlock_IconYOffset, #Style_MediaBlock_IconSize, SetAlpha($40, $F0F0F0), 0)
 		EndIf
 		
-		For Loop = Index To LastBlock
-			If *Data\Content_DisplayedLines()\Object\DataPoints(Loop)
-				DrawDataPoint(*Data, *Data\Meas_Body_HOffset + (Loop - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth, YPos + #Style_DataPoint_OffsetY)
-			EndIf
-		Next
+		If *Data\Meas_Body_ColumnWidth > 5
+			For Loop = Index To LastBlock
+				If *Data\Content_DisplayedLines()\Object\DataPoints(Loop)
+					DrawDataPoint(*Data, *Data\Meas_Body_HOffset + (Loop - *Data\Meas_HScrollPosition) * *Data\Meas_Body_ColumnWidth, YPos + #Style_DataPoint_OffsetY)
+				EndIf
+			Next
+		EndIf
 		
 		; I don't understand why this is necessary...
 		VectorSourceColor($FFF0F0F0)
@@ -1411,7 +1446,7 @@ Module PureTL
 				VectorSourceColor( $FF000000)
 				StrokePath(1.5)
 				Loop + DrawMediaBlock(*Data, YPos, Loop, *Data\Content_DisplayedLines()\Object\Mediablocks(Loop + *Data\Meas_HScrollPosition))
-			ElseIf *Data\Content_DisplayedLines()\Object\DataPoints(Loop + *Data\Meas_HScrollPosition)
+			ElseIf *Data\Meas_Body_ColumnWidth > 5 And *Data\Content_DisplayedLines()\Object\DataPoints(Loop + *Data\Meas_HScrollPosition)
 				DrawDataPoint(*Data, *Data\Meas_Body_HOffset + Loop * *Data\Meas_Body_ColumnWidth, YPos + #Style_DataPoint_OffsetY)
 			EndIf
 		Next
@@ -1711,7 +1746,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 921
-; FirstLine = 356
-; Folding = v0AAwIDGGDgBHw
+; CursorPosition = 1218
+; FirstLine = 393
+; Folding = v0AAAYGAYMAWeA-
 ; EnableXP
