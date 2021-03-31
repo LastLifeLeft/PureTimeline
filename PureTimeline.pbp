@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-03-31 04:58" user="poshu" host="MINIMONSTRO"/>
+    <lastopen date="2021-03-31 14:57" user="poshu" host="MINIMONSTRO"/>
   </section>
   <section name="files">
     <file name="CanvasButton\CanvasButton.pbi">
