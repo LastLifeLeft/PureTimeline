@@ -82,10 +82,14 @@ Module PureTL
 		#Unfolded
 	EndEnumeration
 	
-	Enumeration ;MediaBlock type
-		#MediaBlock_Video
-		#MediaBlock_Sound
-		#MediaBlock_Effect
+	Enumeration ; UserAction
+		#Action_Hover
+		#Action_Resizing
+		#Action_ResizingInit
+		#Action_MBDrag
+		#Action_MBDragInit
+		#Action_DPDrag
+		#Action_DPDragInit
 	EndEnumeration
 	
 	; Functionality
@@ -104,7 +108,6 @@ Module PureTL
 	#Style_Player_TopOffset = (#Style_Player_TopWidth - #Style_Player_Width) / 2
 	#Style_Player_TopSquare = #Style_Player_TopHeight - #Style_Player_TopOffset - 1
 	
-	
 	#Style_Line_Height = 58
 	
 	#Style_List_Width = 240
@@ -119,11 +122,12 @@ Module PureTL
 	
 	#Style_Body_DefaultColumnWidth = 12
 	#Style_Body_MaximumColumnWidth = 17
+	#Style_Body_MinimumColumnWidth = 1
+	#Style_Column_MinimumDisplaySize = 5
 	#Style_Body_ColumnMargin = 2
 	
 	#Style_DataPoint_SizeBig = 5
 	#Style_DataPoint_SizeMedium = 3
-	#Style_DataPoint_SizeSmall = 1
 	#Style_DataPoint_OffsetY = #Style_Line_Height / 2
 	
 	#Style_MediaBlock_Margin = 3
@@ -186,6 +190,7 @@ Module PureTL
 		Fold.b
 		HOffset.b
 		Color.i
+		State.b
 		
 		*DisplayListAdress
 		*Parent.Line
@@ -226,11 +231,12 @@ Module PureTL
 		Colors_Header_Front.l
 		Colors_List_Back.l
 		Colors_List_Front.l
+		Array Colors_List_FillBlending.l(3)
 		Colors_Body_Back.l
-		Colors_Body_Front.l
 		Colors_Body_AltBack.l
-		Colors_Body_AltFront.l
 		Colors_Index.b
+		Array Colors_Body_StrokeBlending.l(5)
+		Array Colors_Body_FillBlending.l(5)
 		
 		; Measurements
 		Meas_Body_Width.i
@@ -241,9 +247,8 @@ Module PureTL
 		
 		Meas_Header_Height.i
 		
-		Meas_Lines_Visible.i
+		Meas_Line_Visible.i
 		Meas_Line_Total.i
-		Meas_Lines_Height.i
 		
 		Meas_VScrollBar_Width.i
 		Meas_VScrollBar_Visible.b
@@ -258,12 +263,9 @@ Module PureTL
 		Meas_Gadget_Height.i
 		
 		; State
-		State_WarmToggleButton.i
-		*State_WarmLine.Line
-		*State_WarmDataPoint.DataPoint
-		*State_WarmMediaBlock.Mediablock
-		List *State_HotMediaBlocks.Mediablock()
-		List *State_HotDataPoints.DataPoint()
+		State_SelectedLine.i
+		List *State_SelectedMediaBlocks.Mediablock()
+		List *State_SelectedDataPoints.DataPoint()
 		State_UserAction.i
 		State_VerticalScroll.i
 		State_HorizontalScroll.i
@@ -275,6 +277,11 @@ Module PureTL
 		Player_Step.b
 		
 		; Drawing informations
+		Draw_WarmToggle.i
+		Draw_WarmLine.i
+		*Draw_WarmDataPoint.DataPoint
+		*Draw_WarmMediaBlock.Mediablock
+		
 		Draw_Font.i
 		Draw_FontSize.i
 		
@@ -304,12 +311,11 @@ Module PureTL
 	Declare HandlerPlayButton(Button)
 	Declare HandlerStartButton(Button)
 	Declare HandlerEndButton(Button)
-	Declare HandlerPlayer()
 	
 	; Drawing
 	Declare Redraw(Gadget)
-	Declare DrawLine(*Data.GadgetData, YPos, ListIndex, AltBackground)
-	Declare DrawMediaBlock(*Data.GadgetData, YPos, Index, *Block.Mediablock)
+	Declare DrawLine(*Data.GadgetData)
+	Declare DrawMediaBlock(*Data.GadgetData, YPos, *Block.Mediablock)
 	Declare DrawDataPoint(*Data.GadgetData, x, y)
 	Declare AddPathMediaBlock(x, y, Width, Height, Radius)
 	
@@ -343,23 +349,39 @@ Module PureTL
 				
 				\Colors_List_Back = FixColor(#Color_ListBack)
 				\Colors_List_Front = FixColor(#Color_ListFront)
+				\Colors_List_FillBlending(#State_Cold) = #Color_Blending_Back_Cold
+				\Colors_List_FillBlending(#State_Warm) = #Color_Blending_Back_Warm
+				\Colors_List_FillBlending(#State_Hot) = #Color_Blending_Back_Hot
 				
 				\Colors_Body_Back = FixColor(#Color_BodyBack)
 				\Colors_Body_AltBack = FixColor(#Color_BodyAltBack)
+				\Colors_Body_StrokeBlending(#State_Cold) = $FF
+				\Colors_Body_StrokeBlending(#State_Warm) = $FF
+				\Colors_Body_StrokeBlending(#State_Hot) = $FF
+				\Colors_Body_StrokeBlending(#State_Drag) = $70
+				\Colors_Body_StrokeBlending(#State_Resize) = $70
+				\Colors_Body_FillBlending(#State_Cold) = $20
+				\Colors_Body_FillBlending(#State_Warm) = $40
+				\Colors_Body_FillBlending(#State_Hot) = $60
+				\Colors_Body_FillBlending(#State_Drag) = $20
+				\Colors_Body_FillBlending(#State_Resize) = $20
 				
 				; Measurements
 				\Meas_List_Width = #Style_List_Width
 				\Meas_Header_Height = #Style_Header_Height
 				\Meas_Column_Width = #Style_Body_DefaultColumnWidth
 				\Meas_Line_Total = -1
-				\Meas_Lines_Height = #Style_Line_Height
 				
 				; Drawing informations
 				\Draw_Font = DefaultFont
 				\Draw_FontSize = #Style_List_FontSize
 				
 				; State
-				\State_WarmToggleButton = -1
+				\State_SelectedLine = -1
+				
+				; Draw
+				\Draw_WarmLine = -1
+				\Draw_WarmToggle = -1
 				
 				\Content_Duration = #Func_DefaultDuration + #Style_Body_ColumnMargin * 2
 				
@@ -605,12 +627,214 @@ Module PureTL
 	EndProcedure
 	
 	; Handlers
+	Macro StartLocalRedrawing
+		If Not Redraw
+			Redraw = #True
+			StartVectorDrawing(CanvasVectorOutput(Gadget))
+			VectorFont(FontID(*Data\Draw_Font), *Data\Draw_FontSize)
+		EndIf
+	EndMacro
+	
 	Procedure HandlerCanvas()
+		Protected Gadget= EventGadget(), *Data.GadgetData = GetGadgetData(Gadget)
+		Protected MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX), MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
+		Protected Line, Column
+		Protected WarmLine = -1, WarmToggle = -1, *WarmMediaBlock.MediaBlock, *WarmDataPoint.DataPoint, Redraw
+		
+		Select EventType()
+			Case #PB_EventType_MouseMove ;{
+				Select *Data\State_UserAction
+					Case #Action_Hover ;{
+						If MouseY < *Data\Meas_Header_Height ;{ Hovering over the header
+							;}
+						ElseIf MouseX < *Data\Meas_List_Width ;{ Hovering over the list
+							MouseY - *Data\Meas_Header_Height
+							Line = MouseY / #Style_Line_Height + *Data\State_VerticalScroll
+							If Line <= *Data\Meas_Line_Total
+								MouseY % #Style_Line_Height
+								;Check if the mouse is hovering above the fold
+								SelectElement(*Data\Content_DisplayedLines(), Line)
+								If (*Data\Content_DisplayedLines()\Object\Fold And
+								    MouseX > *Data\Content_DisplayedLines()\Object\HOffset -4 And
+								    MouseX < *Data\Content_DisplayedLines()\Object\HOffset + #Style_List_FoldSize + 4 And
+								    MouseY > #Style_List_FoldOffset -4 And
+								    MouseY < #Style_List_FoldOffset + #Style_List_FoldSize + 4 )
+									WarmToggle = Line
+								CompilerIf #Func_LineSelection
+								Else
+									If Line <> *Data\State_SelectedLine
+										WarmLine = Line
+									EndIf
+								CompilerEndIf
+								EndIf
+							EndIf
+							;}
+						Else ;{ Hovering over the content
+							
+						EndIf ;}
+						
+						If *Data\Draw_WarmLine <> WarmLine
+							StartLocalRedrawing
+							If *Data\Draw_WarmLine > - 1
+								SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmLine)
+								*Data\Content_DisplayedLines()\Object\State = #State_Cold
+								*Data\Draw_WarmLine = -1
+								DrawLine(*Data)
+							EndIf
+							
+							If WarmLine > -1
+								*Data\Draw_WarmLine = WarmLine
+								SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmLine)
+								*Data\Content_DisplayedLines()\Object\State = #State_Warm
+								DrawLine(*Data)
+							EndIf
+						EndIf
+						
+						If *Data\Draw_WarmToggle <> WarmToggle
+							StartLocalRedrawing
+							If *Data\Draw_WarmToggle > - 1
+								SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmToggle)
+								*Data\Draw_WarmToggle = -1
+								DrawLine(*Data)
+							EndIf
+							
+							If WarmToggle > -1
+								*Data\Draw_WarmToggle = WarmToggle
+								SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmToggle)
+								DrawLine(*Data)
+							EndIf
+						EndIf
+						
+						If *Data\Draw_WarmDataPoint <> *WarmDataPoint
+							StartLocalRedrawing
+						EndIf
+						
+						If *Data\Draw_WarmMediaBlock <> *WarmMediaBlock
+							StartLocalRedrawing
+						EndIf
+						
+						If Redraw
+							; REDRAW THE PLAYER LINE ONCE IMPLEMENTED!
+							StopVectorDrawing()
+						EndIf
+						;}
+					Case #Action_Resizing ;{
+						;}
+					Case #Action_ResizingInit ;{
+						;}
+					Case #Action_MBDrag ;{
+						;}
+					Case #Action_MBDragInit ;{
+						;}
+					Case #Action_DPDrag ;{
+						;}
+					Case #Action_DPDragInit ;{
+						;}
+				EndSelect
+
+				;}
+			Case #PB_EventType_MouseLeave ;{
+				If *Data\State_UserAction = #Action_Hover
+					If *Data\Draw_WarmLine <> WarmLine
+						StartLocalRedrawing
+						If *Data\Draw_WarmLine > - 1
+							SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmLine)
+							*Data\Content_DisplayedLines()\Object\State = #State_Cold
+							*Data\Draw_WarmLine = -1
+							DrawLine(*Data)
+						EndIf
+						
+						If WarmLine > 1
+							*Data\Draw_WarmLine = WarmLine
+							SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmLine)
+							*Data\Content_DisplayedLines()\Object\State = #State_Warm
+							DrawLine(*Data)
+						EndIf
+					EndIf
+					
+					If *Data\Draw_WarmToggle <> WarmToggle
+						StartLocalRedrawing
+						
+					EndIf
+					
+					If *Data\Draw_WarmDataPoint <> *WarmDataPoint
+						StartLocalRedrawing
+					EndIf
+					
+					If *Data\Draw_WarmMediaBlock <> *WarmMediaBlock
+						StartLocalRedrawing
+					EndIf
+					
+					If Redraw
+						; REDRAW THE PLAYER LINE ONCE IMPLEMENTED!
+						StopVectorDrawing()
+					EndIf
+				EndIf
+				;}
+			Case #PB_EventType_LeftButtonDown ;{
+				Select *Data\State_UserAction
+					Case #Action_Hover ;{
+						If *Data\Draw_WarmLine > -1
+							StartLocalRedrawing
+							If *Data\State_SelectedLine > -1
+								SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+								*Data\Content_DisplayedLines()\Object\State = #State_Cold
+								DrawLine(*Data)
+							EndIf
+							
+							*Data\State_SelectedLine = *Data\Draw_WarmLine
+							*Data\Draw_WarmLine = - 1
+							
+							SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+							*Data\Content_DisplayedLines()\Object\State = #State_Hot
+							DrawLine(*Data)
+							StopVectorDrawing()
+						ElseIf *Data\Draw_WarmToggle > -1
+							ToggleFold(Gadget, *Data\Draw_WarmToggle)
+						EndIf
+						;}
+					Case #Action_ResizingInit ;{
+						
+						;}
+					Case #Action_DPDragInit ;{
+						
+						;}
+					EndSelect
+				;}
+				Case #PB_EventType_LeftButtonUp ;{
+					Select *Data\State_UserAction
+						Case #Action_Hover ;{
+							
+							;}
+						Case #Action_Resizing ;{
+							
+							;}
+						Case #Action_ResizingInit ;{
+							
+							;}
+						Case #Action_MBDrag ;{
+							
+							;}
+						Case #Action_MBDragInit ;{
+							
+							;}
+						Case #Action_DPDrag ;{
+							
+							;}
+						Case #Action_DPDragInit ;{
+							
+							;}
+					EndSelect
+ 					;}
+		EndSelect
 		
 	EndProcedure
 	
 	Procedure HandlerHScrollbar()
-		
+		Protected Gadget = GetGadgetData(EventGadget())
+		If ScrollHorizontal(Gadget)
+			Redraw(Gadget)
+		EndIf
 	EndProcedure
 	
 	Procedure HandlerVScrollbar()
@@ -632,14 +856,12 @@ Module PureTL
 		
 	EndProcedure
 	
-	Procedure HandlerPlayer()
-		
-	EndProcedure
-	
 	; Drawing
+
 	Procedure Redraw(Gadget)
 		Protected *Data.GadgetData = GetGadgetData(Gadget)
-		Protected Loop, LoopEnd, YPos, Height
+		Protected LineLoop, LineLoopEnd, YPos, Height
+		Protected ContentLoop, ContentLoopEnd
 		
 		If Not *Data\Draw_Freeze
 			StartVectorDrawing(CanvasVectorOutput(Gadget))
@@ -651,38 +873,17 @@ Module PureTL
 			FillPath()
 			
 			; Content
-			LoopEnd = min(*Data\Meas_Lines_Visible, *Data\Meas_Line_Total - *Data\State_VerticalScroll)
+			LineLoopEnd = min(*Data\Meas_Line_Visible, *Data\Meas_Line_Total - *Data\State_VerticalScroll)
 			SelectElement(*Data\Content_DisplayedLines(), *Data\State_VerticalScroll)
 			
-			For Loop = 0 To LoopEnd
-				YPos = *Data\Meas_Header_Height + Loop * *Data\Meas_Lines_Height
-				; Body
-				
-				
-				; List
-				AddPathBox(0, YPos , *Data\Meas_List_Width, *Data\Meas_Lines_Height)
-				VectorSourceColor(SetAlpha($FF, *Data\Colors_List_Back))
-				FillPath()
-				
-				If *Data\Content_DisplayedLines()\Object\Fold
-					If *Data\Content_DisplayedLines()\Object\Fold = #Folded
-						MaterialVector::Draw(MaterialVector::#Chevron, *Data\Content_DisplayedLines()\Object\HOffset, YPos + #Style_List_FoldOffset, #Style_List_FoldSize, SetAlpha(#Color_Blending_Front_Warm ,*Data\Colors_List_Front), 0, MaterialVector::#style_rotate_90)
-					Else
-						MaterialVector::Draw(MaterialVector::#Chevron, *Data\Content_DisplayedLines()\Object\HOffset, YPos + #Style_List_FoldOffset, #Style_List_FoldSize, SetAlpha(#Color_Blending_Front_Warm ,*Data\Colors_List_Front), 0, MaterialVector::#style_rotate_180)
-					EndIf
-					
-					MovePathCursor(*Data\Content_DisplayedLines()\Object\HOffset + #Style_List_FoldIconOffset, YPos + #Style_List_TextVOffset)
-				Else
-					MovePathCursor(*Data\Content_DisplayedLines()\Object\HOffset, YPos + #Style_List_TextVOffset)
-				EndIf
-				VectorSourceColor(SetAlpha(#Color_Blending_Front_Warm ,*Data\Colors_List_Front))
-				DrawVectorText(*Data\Content_DisplayedLines()\Object\Text)
-				
+			For LineLoop = 0 To LineLoopEnd
+				DrawLine(*Data)
 				NextElement(*Data\Content_DisplayedLines())
 			Next
 			
-			If Loop < *Data\Meas_Lines_Visible + 1
-				YPos = *Data\Meas_Header_Height + Loop * *Data\Meas_Lines_Height
+			; Fill the empty bottom of the gadget if needed
+			If LineLoop < *Data\Meas_Line_Visible + 1
+				YPos = *Data\Meas_Header_Height + LineLoop * #Style_Line_Height
 				Height = *Data\Meas_Gadget_Height - YPos
 				AddPathBox(0, YPos , *Data\Meas_List_Width, Height)
 				VectorSourceColor(SetAlpha($FF, *Data\Colors_List_Back))
@@ -691,19 +892,121 @@ Module PureTL
 				AddPathBox(*Data\Meas_List_Width, YPos , *Data\Meas_Body_Width, Height)
 				VectorSourceColor(SetAlpha($FF, *Data\Colors_Body_Back))
 				FillPath()
-				
 			EndIf
 			
 			StopVectorDrawing()
 		EndIf
 	EndProcedure
 	
-	Procedure DrawLine(*Data.GadgetData, YPos, ListIndex, AltBackground)
+	Procedure DrawLine(*Data.GadgetData)
+		Protected Index = ListIndex(*Data\Content_DisplayedLines()) - *Data\State_VerticalScroll, ContentLoop, ContentLoopEnd, YPos = *Data\Meas_Header_Height + Index * #Style_Line_Height
 		
+		; Body
+		If (Index + *Data\State_VerticalScroll) % 2 Or *Data\Content_DisplayedLines()\Object\State
+			VectorSourceColor(SetAlpha($FF,*Data\Colors_Body_AltBack))
+		Else
+			VectorSourceColor(SetAlpha($FF,*Data\Colors_Body_Back))
+		EndIf
+		AddPathBox(*Data\Meas_List_Width, YPos, *Data\Meas_Body_Width, #Style_Line_Height)
+		If *Data\Content_DisplayedLines()\Object\State
+			FillPath(#PB_Path_Preserve)
+			VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(*Data\Content_DisplayedLines()\Object\State),*Data\Colors_List_Front))
+			FillPath()
+		EndIf
+		FillPath()
+		
+		ContentLoopEnd = *Data\State_HorizontalScroll + *Data\Meas_Column_Visible
+		
+		For ContentLoop = *Data\State_HorizontalScroll To ContentLoopEnd
+			If *Data\Content_DisplayedLines()\Object\Mediablocks(ContentLoop)
+				DrawMediaBlock(*Data, YPos, *Data\Content_DisplayedLines()\Object\Mediablocks(ContentLoop))
+				ContentLoop = *Data\Content_DisplayedLines()\Object\Mediablocks(ContentLoop)\LastBlock
+			ElseIf *Data\Meas_Column_Width > #Style_Column_MinimumDisplaySize
+				If *Data\Content_DisplayedLines()\Object\DataPoints(ContentLoop)
+					DrawDataPoint(*Data, 0, YPos)
+				EndIf
+			EndIf
+		Next
+		
+		; List
+		AddPathBox(0, YPos , *Data\Meas_List_Width, #Style_Line_Height)
+		VectorSourceColor(SetAlpha($FF, *Data\Colors_List_Back))
+		If *Data\Content_DisplayedLines()\Object\State
+			FillPath(#PB_Path_Preserve)
+			VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(*Data\Content_DisplayedLines()\Object\State),*Data\Colors_List_Front))
+		EndIf
+		FillPath()
+		
+		If *Data\Content_DisplayedLines()\Object\Fold
+			If Index = *Data\Draw_WarmToggle
+				If *Data\Content_DisplayedLines()\Object\State = #State_Cold
+					VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(#State_Hot),*Data\Colors_List_Front))
+				Else
+					VectorSourceColor(SetAlpha($FF,*Data\Colors_List_Back))
+				EndIf
+				MaterialVector::AddPathRoundedBox(*Data\Content_DisplayedLines()\Object\HOffset - 5, YPos + #Style_List_FoldOffset - 5, #Style_List_FoldSize + 10, #Style_List_FoldSize + 10, 4)
+				FillPath()
+				MaterialVector::Draw(MaterialVector::#Chevron, *Data\Content_DisplayedLines()\Object\HOffset,
+				                     YPos + #Style_List_FoldOffset,
+				                     #Style_List_FoldSize,
+				                     SetAlpha(#Color_Blending_Front_Hot ,*Data\Colors_List_Front), 0,
+				                     MaterialVector::#style_rotate_90 * *Data\Content_DisplayedLines()\Object\Fold)
+			Else
+				MaterialVector::Draw(MaterialVector::#Chevron, *Data\Content_DisplayedLines()\Object\HOffset,
+				                     YPos + #Style_List_FoldOffset,
+				                     #Style_List_FoldSize,
+				                     SetAlpha(#Color_Blending_Front_Warm ,*Data\Colors_List_Front), 0,
+				                     MaterialVector::#style_rotate_90 * *Data\Content_DisplayedLines()\Object\Fold)
+			EndIf
+			MovePathCursor(*Data\Content_DisplayedLines()\Object\HOffset + #Style_List_FoldIconOffset, YPos + #Style_List_TextVOffset)
+		Else
+			MovePathCursor(*Data\Content_DisplayedLines()\Object\HOffset, YPos + #Style_List_TextVOffset)
+		EndIf
+		VectorSourceColor(SetAlpha(#Color_Blending_Front_Warm ,*Data\Colors_List_Front))
+		DrawVectorText(*Data\Content_DisplayedLines()\Object\Text)
 	EndProcedure
 	
-	Procedure DrawMediaBlock(*Data.GadgetData, YPos, Index, *Block.Mediablock)
+	Procedure DrawMediaBlock(*Data.GadgetData, YPos, *Block.Mediablock)
+		Protected Start, Finish, FirstBlock, LastBlock, loop, Mediablock = #True
 		
+		Start = (*Block\FirstBlock - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width
+		Finish = (*Block\LastBlock - *Block\FirstBlock) * *Data\Meas_Column_Width
+		
+		If Finish + Start > (*Data\State_HorizontalScroll + *Data\Meas_Column_Visible) * *Data\Meas_Column_Width
+			LastBlock = *Data\State_HorizontalScroll + *Data\Meas_Column_Visible
+			Finish = (LastBlock - *Block\FirstBlock) * *Data\Meas_Column_Width
+		Else
+			LastBlock = *Block\LastBlock
+		EndIf
+		
+		If Start < -#Style_Body_DefaultColumnWidth
+			FirstBlock = *Data\State_HorizontalScroll
+			Start = *Data\Meas_List_Width - 1
+			Finish = (LastBlock - FirstBlock) * *Data\Meas_Column_Width + 1
+			Mediablock = #False
+		Else
+			Start + *Data\Meas_List_Width
+			FirstBlock = *Block\FirstBlock
+		EndIf
+		
+		If Mediablock
+			AddPathMediaBlock(Start, YPos + #Style_MediaBlock_Margin, Finish, #Style_MediaBlock_Height, #Style_Body_DefaultColumnWidth)
+		Else
+			AddPathBox(Start, YPos + #Style_MediaBlock_Margin, Finish, #Style_MediaBlock_Height)
+		EndIf
+		
+		VectorSourceColor( SetAlpha(*Data\Colors_Body_FillBlending(*Block\State), *Data\Content_DisplayedLines()\Object\Color))
+		FillPath(#PB_Path_Preserve)
+		VectorSourceColor( SetAlpha(*Data\Colors_Body_StrokeBlending(*Block\State), *Data\Content_DisplayedLines()\Object\Color))
+		StrokePath(2)
+		
+		If *Data\Meas_Column_Width > #Style_Column_MinimumDisplaySize
+			For loop = FirstBlock To LastBlock
+				If *Data\Content_DisplayedLines()\Object\DataPoints(loop)
+					
+				EndIf
+			Next
+		EndIf
 	EndProcedure
 	
 	Procedure DrawDataPoint(*Data.GadgetData, x, y)
@@ -711,7 +1014,11 @@ Module PureTL
 	EndProcedure
 	
 	Procedure AddPathMediaBlock(x, y, Width, Height, Radius)
-		
+		MovePathCursor(x + Width, y)
+		AddPathArc(x, y, x,y + Height, Radius)
+		AddPathLine(x, y + Height)
+		AddPathLine(x + Width, y + Height)
+		ClosePath()
 	EndProcedure
 	
 	; Misc
@@ -724,7 +1031,11 @@ Module PureTL
 	EndProcedure
 	
 	Procedure ScrollHorizontal(Gadget)
-		
+		Protected *Data.GadgetData = GetGadgetData(Gadget), ScrollbarPosition = GetGadgetState(*Data\Comp_HScrollBar)
+		If Not *Data\State_HorizontalScroll = ScrollbarPosition
+			*Data\State_HorizontalScroll = ScrollbarPosition
+			ProcedureReturn #True
+		EndIf
 	EndProcedure
 	
 	Procedure Refit(Gadget)
@@ -734,11 +1045,11 @@ Module PureTL
 		*Data\Meas_Gadget_Height = GadgetHeight(Gadget)
 		*Data\Meas_Content_Height = *Data\Meas_Gadget_Height - *Data\Meas_Header_Height
 		*Data\Meas_Body_Width = *Data\Meas_Gadget_Width - *Data\Meas_List_Width
-		*Data\Meas_Lines_Visible = *Data\Meas_Content_Height / #Style_Line_Height
+		*Data\Meas_Line_Visible = *Data\Meas_Content_Height / #Style_Line_Height
 		
-		If *Data\Meas_Line_Total >= *Data\Meas_Lines_Visible
+		If *Data\Meas_Line_Total >= *Data\Meas_Line_Visible
 			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_Maximum, *Data\Meas_Line_Total)
-			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_PageLength, *Data\Meas_Lines_Visible)
+			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_PageLength, *Data\Meas_Line_Visible)
 			*Data\Meas_VScrollBar_Visible = #True
 			*Data\Meas_Body_Width - *Data\Meas_VScrollBar_Width
 			ScrollVertical(Gadget)
@@ -797,15 +1108,74 @@ Module PureTL
 	EndProcedure
 	
 	Procedure RecurciveFold(*Data.GadgetData, *Line.Line)
+		Protected Result
 		
+		ForEach *Line\Content_Lines()
+			NextElement(*Data\Content_DisplayedLines())
+			
+			If *Line\Content_Lines()\Object\Fold = #Unfolded
+				Result + RecurciveFold(*Data.GadgetData, *Line\Content_Lines()\Object)
+			EndIf
+			
+			DeleteElement(*Data\Content_DisplayedLines())
+			*Line\Content_Lines()\Object\DisplayListAdress = 0
+			Result + 1
+		Next
+		
+		ProcedureReturn Result
 	EndProcedure
 	
 	Procedure RecurciveUnFold(*Data.GadgetData, *Line.Line)
+		Protected Result
 		
+		ForEach *Line\Content_Lines()
+			AddElement(*Data\Content_DisplayedLines())
+			*Data\Content_DisplayedLines()\Object = *Line\Content_Lines()\Object
+			*Line\Content_Lines()\Object\DisplayListAdress= @*Data\Content_DisplayedLines()
+			
+			If *Line\Content_Lines()\Object\Fold = #Unfolded
+				Result + RecurciveUnFold(*Data.GadgetData, *Line\Content_Lines()\Object)
+			EndIf
+			Result + 1
+		Next
+		
+		ProcedureReturn Result
 	EndProcedure
 	
 	Procedure ToggleFold(Gadget, Item)
+		Protected *Data.GadgetData = GetGadgetData(Gadget), *Line.Line, Index, Offset
 		
+		SelectElement(*Data\Content_DisplayedLines(), Item)
+		Index = ListIndex(*Data\Content_DisplayedLines())
+		
+		*Line.Line = *Data\Content_DisplayedLines()\Object
+		
+		If *Data\Content_DisplayedLines()\Object\Fold = #Folded
+			*Data\Content_DisplayedLines()\Object\Fold = #Unfolded
+			Offset = RecurciveUnFold(*Data.GadgetData, *Data\Content_DisplayedLines()\Object)
+			
+			If *Data\State_SelectedLine > Index
+				*Data\State_SelectedLine + Offset
+			EndIf
+			
+		Else
+			*Data\Content_DisplayedLines()\Object\Fold = #Folded
+			Offset = RecurciveFold(*Data.GadgetData, *Data\Content_DisplayedLines()\Object)
+			
+			If *Data\State_SelectedLine > Index + Offset
+				*Data\State_SelectedLine - Offset
+			ElseIf *Data\State_SelectedLine > Index
+				SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+				*Data\Content_DisplayedLines()\Object\State = #State_Cold
+				*Data\State_SelectedLine = -1
+			EndIf
+			
+		EndIf
+		
+		*Data\Meas_Line_Total = ListSize(*Data\Content_DisplayedLines()) -1
+		
+		Refit(Gadget)
+		Redraw(Gadget)
 	EndProcedure
 	;}
 EndModule
@@ -855,7 +1225,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 748
-; FirstLine = 495
-; Folding = vdDSIEKw
+; CursorPosition = 1175
+; FirstLine = 419
+; Folding = v0BQG-48PAAw
 ; EnableXP
