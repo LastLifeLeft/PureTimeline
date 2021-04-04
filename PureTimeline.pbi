@@ -1,8 +1,8 @@
-﻿CompilerIf Not Defined(MaterialVector,#PB_Module)
+﻿CompilerIf Not Defined(MaterialVector, #PB_Module)
 	IncludeFile "MaterialVector\MaterialVector.pbi"
 CompilerEndIf
 
-CompilerIf Not Defined(CanvasButton,#PB_Module)
+CompilerIf Not Defined(CanvasButton, #PB_Module)
 	IncludeFile "CanvasButton\CanvasButton.pbi"
 CompilerEndIf
 
@@ -270,6 +270,13 @@ Module PureTL
 		State_VerticalScroll.i
 		State_HorizontalScroll.i
 		
+		; Drag...
+		Drag_Origin.i
+		Drag_Offset.i
+		Drag_ScrollOffset.i
+		Drag_DeselectMB.i
+		Drag_KeepMB.i
+		
 		; Player
 		Player_Enabled.b
 		Player_Position.i
@@ -281,6 +288,7 @@ Module PureTL
 		Draw_WarmLine.i
 		*Draw_WarmDataPoint.DataPoint
 		*Draw_WarmMediaBlock.Mediablock
+		Drag_Step.b
 		
 		Draw_Font.i
 		Draw_FontSize.i
@@ -325,7 +333,7 @@ Module PureTL
 	Declare Refit(Gadget)
 	Declare RecurciveDelete(*Data.GadgetData, *Line.Line)
 	Declare ResizeMB(*Block.MediaBlock, Start, Finish)
-	Declare MoveMB(*Block.MediaBlock, Offset)
+	Declare MoveMB(*Data.GadgetData, *Block.MediaBlock, Offset)
 	Declare RecurciveFold(*Data.GadgetData, *Line.Line)
 	Declare RecurciveUnFold(*Data.GadgetData, *Line.Line)
 	Declare ToggleFold(Gadget, Item)
@@ -636,9 +644,9 @@ Module PureTL
 	EndMacro
 	
 	Procedure HandlerCanvas()
-		Protected Gadget= EventGadget(), *Data.GadgetData = GetGadgetData(Gadget)
+		Protected Gadget = EventGadget(), *Data.GadgetData = GetGadgetData(Gadget)
 		Protected MouseX = GetGadgetAttribute(Gadget, #PB_Canvas_MouseX), MouseY = GetGadgetAttribute(Gadget, #PB_Canvas_MouseY)
-		Protected Line, Column
+		Protected Line, Column, Modifiers
 		Protected WarmLine = -1, WarmToggle = -1, *WarmMediaBlock.MediaBlock, *WarmDataPoint.DataPoint, Redraw
 		
 		Select EventType()
@@ -670,7 +678,24 @@ Module PureTL
 							EndIf
 							;}
 						Else ;{ Hovering over the content
-							
+							MouseY - *Data\Meas_Header_Height
+							Line = MouseY / #Style_Line_Height + *Data\State_VerticalScroll
+							If Line <= *Data\Meas_Line_Total
+								SelectElement(*Data\Content_DisplayedLines(), Line)
+								MouseX - *Data\Meas_List_Width
+								Column = MouseX / *Data\Meas_Column_Width + *Data\State_HorizontalScroll
+								MouseY % #Style_Line_Height
+								MouseX % *Data\Meas_Column_Width
+								
+								If *Data\Content_DisplayedLines()\Object\DataPoints(Column) And #False
+									
+								ElseIf *Data\Content_DisplayedLines()\Object\MediaBlocks(Column)
+									If MouseY > #Style_MediaBlock_Margin And MouseY < #Style_MediaBlock_Margin + #Style_MediaBlock_Height
+										*WarmMediaBlock = *Data\Content_DisplayedLines()\Object\MediaBlocks(Column)
+									EndIf
+								EndIf
+								
+							EndIf
 						EndIf ;}
 						
 						If *Data\Draw_WarmLine <> WarmLine
@@ -707,10 +732,31 @@ Module PureTL
 						
 						If *Data\Draw_WarmDataPoint <> *WarmDataPoint
 							StartLocalRedrawing
+							If *Data\Draw_WarmDataPoint
+								Modifiers = GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers)
+							EndIf
+							
+							If *WarmDataPoint
+								
+							EndIf
 						EndIf
 						
 						If *Data\Draw_WarmMediaBlock <> *WarmMediaBlock
 							StartLocalRedrawing
+							If *Data\Draw_WarmMediaBlock And *Data\Draw_WarmMediaBlock\State = #State_Warm
+								*Data\Draw_WarmMediaBlock\State = #State_Cold
+								ChangeCurrentElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmMediaBlock\Line\DisplayListAdress)
+								DrawLine(*Data)
+								*Data\Draw_WarmMediaBlock = 0
+							EndIf
+							
+							If *WarmMediaBlock And *WarmMediaBlock\State = #State_Cold
+								ChangeCurrentElement(*Data\Content_DisplayedLines(), *WarmMediaBlock\Line\DisplayListAdress)
+								*WarmMediaBlock\State = #State_Warm
+								DrawLine(*Data)
+							EndIf
+							
+							*Data\Draw_WarmMediaBlock = *WarmMediaBlock
 						EndIf
 						
 						If Redraw
@@ -723,109 +769,206 @@ Module PureTL
 					Case #Action_ResizingInit ;{
 						;}
 					Case #Action_MBDrag ;{
+						If MouseX > *Data\Meas_List_Width And MouseX < *Data\Meas_List_Width + *Data\Meas_Body_Width
+							Column = (MouseX - *Data\Drag_Origin) / *Data\Meas_Column_Width
+							If Not *Data\Drag_Offset = Column
+								*Data\Drag_Offset = Column
+								Redraw(Gadget)
+							EndIf
+						Else
+							
+						EndIf
 						;}
 					Case #Action_MBDragInit ;{
+						If Abs(MouseX - *Data\Drag_Origin) > 4
+							*Data\Drag_DeselectMB = #False
+							*Data\Drag_KeepMB = #False
+							*Data\State_UserAction = #Action_MBDrag
+							
+							ForEach *Data\State_SelectedDataPoints()
+								*Data\State_SelectedDataPoints()\State = #State_Drag
+							Next
+							
+							ForEach *Data\State_SelectedMediaBlocks()
+								*Data\State_SelectedMediaBlocks()\State = #State_Drag
+							Next
+						EndIf
 						;}
 					Case #Action_DPDrag ;{
 						;}
 					Case #Action_DPDragInit ;{
 						;}
 				EndSelect
-
 				;}
 			Case #PB_EventType_MouseLeave ;{
-				If *Data\State_UserAction = #Action_Hover
-					If *Data\Draw_WarmLine <> WarmLine
-						StartLocalRedrawing
-						If *Data\Draw_WarmLine > - 1
-							SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmLine)
-							*Data\Content_DisplayedLines()\Object\State = #State_Cold
-							*Data\Draw_WarmLine = -1
-							DrawLine(*Data)
-						EndIf
-						
-						If WarmLine > 1
-							*Data\Draw_WarmLine = WarmLine
-							SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmLine)
-							*Data\Content_DisplayedLines()\Object\State = #State_Warm
-							DrawLine(*Data)
-						EndIf
-					EndIf
-					
-					If *Data\Draw_WarmToggle <> WarmToggle
-						StartLocalRedrawing
-						
-					EndIf
-					
-					If *Data\Draw_WarmDataPoint <> *WarmDataPoint
-						StartLocalRedrawing
-					EndIf
-					
-					If *Data\Draw_WarmMediaBlock <> *WarmMediaBlock
-						StartLocalRedrawing
-					EndIf
-					
-					If Redraw
-						; REDRAW THE PLAYER LINE ONCE IMPLEMENTED!
-						StopVectorDrawing()
-					EndIf
-				EndIf
 				;}
 			Case #PB_EventType_LeftButtonDown ;{
 				Select *Data\State_UserAction
 					Case #Action_Hover ;{
-						If *Data\Draw_WarmLine > -1
-							StartLocalRedrawing
-							If *Data\State_SelectedLine > -1
+						If MouseY < *Data\Meas_Header_Height ;{
+							;}
+						ElseIf MouseX < *Data\Meas_List_Width ;{ 
+							If *Data\Draw_WarmLine > -1
+								StartLocalRedrawing
+								If *Data\State_SelectedLine > -1
+									SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+									*Data\Content_DisplayedLines()\Object\State = #State_Cold
+									DrawLine(*Data)
+								EndIf
+								
+								*Data\State_SelectedLine = *Data\Draw_WarmLine
+								*Data\Draw_WarmLine = - 1
+								
 								SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
-								*Data\Content_DisplayedLines()\Object\State = #State_Cold
+								*Data\Content_DisplayedLines()\Object\State = #State_Hot
 								DrawLine(*Data)
+								StopVectorDrawing()
+							ElseIf *Data\Draw_WarmToggle > -1
+								ToggleFold(Gadget, *Data\Draw_WarmToggle)
 							EndIf
-							
-							*Data\State_SelectedLine = *Data\Draw_WarmLine
-							*Data\Draw_WarmLine = - 1
-							
-							SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
-							*Data\Content_DisplayedLines()\Object\State = #State_Hot
-							DrawLine(*Data)
-							StopVectorDrawing()
-						ElseIf *Data\Draw_WarmToggle > -1
-							ToggleFold(Gadget, *Data\Draw_WarmToggle)
-						EndIf
+							;}
+						Else;{ Body
+							Modifiers = GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers)
+							If *Data\Draw_WarmMediaBlock
+								If Modifiers & #PB_Canvas_Command
+									If *Data\Draw_WarmMediaBlock\State = #State_Hot
+										*Data\Drag_DeselectMB = #True
+									Else
+										*Data\Draw_WarmMediaBlock\State = #State_Hot
+										*Data\Draw_WarmMediaBlock\StateListElement = AddElement(*Data\State_SelectedMediaBlocks())
+										*Data\State_SelectedMediaBlocks() = *Data\Draw_WarmMediaBlock
+									EndIf
+									ChangeCurrentElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmMediaBlock\Line\DisplayListAdress)
+									StartLocalRedrawing
+									DrawLine(*Data)
+									StopVectorDrawing()
+								Else
+									If *Data\Draw_WarmMediaBlock\State = #State_Hot
+										If ListSize(*Data\State_SelectedDataPoints()) Or ListSize(*Data\State_SelectedMediaBlocks())
+											*Data\Drag_KeepMB = #True
+										EndIf
+									ElseIf ListSize(*Data\State_SelectedDataPoints()) Or ListSize(*Data\State_SelectedMediaBlocks())
+										ForEach *Data\State_SelectedDataPoints()
+											*Data\State_SelectedDataPoints()\State = #State_Cold
+											DeleteElement(*Data\State_SelectedDataPoints())
+										Next
+										
+										ForEach *Data\State_SelectedMediaBlocks()
+											*Data\State_SelectedMediaBlocks()\State = #State_Cold
+											DeleteElement(*Data\State_SelectedMediaBlocks())
+										Next
+										
+										*Data\Draw_WarmMediaBlock\State = #State_Hot
+										*Data\Draw_WarmMediaBlock\StateListElement = AddElement(*Data\State_SelectedMediaBlocks())
+										*Data\State_SelectedMediaBlocks() = *Data\Draw_WarmMediaBlock
+										
+										Redraw(Gadget)
+									Else
+										*Data\Draw_WarmMediaBlock\State = #State_Hot
+										*Data\Draw_WarmMediaBlock\StateListElement = AddElement(*Data\State_SelectedMediaBlocks())
+										*Data\State_SelectedMediaBlocks() = *Data\Draw_WarmMediaBlock
+										ChangeCurrentElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmMediaBlock\Line\DisplayListAdress)
+										StartLocalRedrawing
+										DrawLine(*Data)
+										StopVectorDrawing()
+									EndIf
+								EndIf
+								
+								*Data\State_UserAction = #Action_MBDragInit
+								*Data\Drag_Origin = MouseX
+							ElseIf *Data\Draw_WarmDataPoint
+								
+							Else
+								If Not Modifiers & #PB_Canvas_Command
+									ForEach *Data\State_SelectedDataPoints()
+										*Data\State_SelectedDataPoints()\State = #State_Cold
+										DeleteElement(*Data\State_SelectedDataPoints())
+									Next
+									
+									ForEach *Data\State_SelectedMediaBlocks()
+										*Data\State_SelectedMediaBlocks()\State = #State_Cold
+										DeleteElement(*Data\State_SelectedMediaBlocks())
+									Next
+									Redraw(Gadget)
+								EndIf
+							EndIf
+						EndIf;}
 						;}
 					Case #Action_ResizingInit ;{
 						
 						;}
-					Case #Action_DPDragInit ;{
+				EndSelect
+				;}
+			Case #PB_EventType_LeftButtonUp ;{
+				Select *Data\State_UserAction
+					Case #Action_Hover ;{
 						
 						;}
-					EndSelect
+					Case #Action_Resizing ;{
+						
+						;}
+					Case #Action_ResizingInit ;{
+						
+						;}
+					Case #Action_MBDrag ;{
+						*Data\State_UserAction = #Action_Hover
+						
+						; Reordering the list to avoid items being moved several time during a multi-items drag...
+						Debug "Offset : " + *Data\Drag_Offset
+						If *Data\Drag_Offset > 0
+							SortStructuredList(*Data\State_SelectedDataPoints(), #PB_Sort_Descending, OffsetOf(DataPoint\Position), #PB_Integer)
+							SortStructuredList(*Data\State_SelectedMediaBlocks(), #PB_Sort_Descending, OffsetOf(Mediablock\FirstBlock), #PB_Integer)
+						Else
+							SortStructuredList(*Data\State_SelectedDataPoints(), #PB_Sort_Ascending, OffsetOf(DataPoint\Position), #PB_Integer)
+							SortStructuredList(*Data\State_SelectedMediaBlocks(), #PB_Sort_Ascending, OffsetOf(Mediablock\FirstBlock), #PB_Integer)
+						EndIf
+						
+						ForEach *Data\State_SelectedDataPoints()
+							*Data\State_SelectedDataPoints()\State = #State_Hot
+						Next
+						
+						Debug "pendant---"
+						ResetList(*Data\State_SelectedMediaBlocks())
+						While NextElement(*Data\State_SelectedMediaBlocks())
+							Debug *Data\State_SelectedMediaBlocks()\FirstBlock
+							*Data\State_SelectedMediaBlocks()\State = #State_Hot
+							MoveMB(*Data, *Data\State_SelectedMediaBlocks(), *Data\Drag_Offset)
+						Wend
+						
+						Redraw(Gadget)
+						;}
+					Case #Action_MBDragInit ;{
+						*Data\State_UserAction = #Action_Hover
+						If *Data\Drag_DeselectMB
+							*Data\Drag_DeselectMB = #False
+							*Data\Draw_WarmMediaBlock\State = #State_Warm
+							ChangeCurrentElement(*Data\State_SelectedMediaBlocks(), *Data\Draw_WarmMediaBlock\StateListElement)
+							DeleteElement(*Data\State_SelectedMediaBlocks())
+							ChangeCurrentElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmMediaBlock\Line\DisplayListAdress)
+							StartLocalRedrawing
+							DrawLine(*Data)
+							StopVectorDrawing()
+						ElseIf *Data\Drag_KeepMB
+							ForEach *Data\State_SelectedDataPoints()
+								*Data\State_SelectedDataPoints()\State = #State_Cold
+								DeleteElement(*Data\State_SelectedDataPoints())
+							Next
+							
+							ForEach *Data\State_SelectedMediaBlocks()
+								*Data\State_SelectedMediaBlocks()\State = #State_Cold
+								DeleteElement(*Data\State_SelectedMediaBlocks())
+							Next
+							
+							*Data\Draw_WarmMediaBlock\State = #State_Hot
+							*Data\Draw_WarmMediaBlock\StateListElement = AddElement(*Data\State_SelectedMediaBlocks())
+							*Data\State_SelectedMediaBlocks() = *Data\Draw_WarmMediaBlock
+							
+							Redraw(Gadget)
+							*Data\Drag_KeepMB = #False
+						EndIf
+						;}
+				EndSelect
 				;}
-				Case #PB_EventType_LeftButtonUp ;{
-					Select *Data\State_UserAction
-						Case #Action_Hover ;{
-							
-							;}
-						Case #Action_Resizing ;{
-							
-							;}
-						Case #Action_ResizingInit ;{
-							
-							;}
-						Case #Action_MBDrag ;{
-							
-							;}
-						Case #Action_MBDragInit ;{
-							
-							;}
-						Case #Action_DPDrag ;{
-							
-							;}
-						Case #Action_DPDragInit ;{
-							
-							;}
-					EndSelect
- 					;}
 		EndSelect
 		
 	EndProcedure
@@ -857,7 +1000,6 @@ Module PureTL
 	EndProcedure
 	
 	; Drawing
-
 	Procedure Redraw(Gadget)
 		Protected *Data.GadgetData = GetGadgetData(Gadget)
 		Protected LineLoop, LineLoopEnd, YPos, Height
@@ -967,14 +1109,14 @@ Module PureTL
 	EndProcedure
 	
 	Procedure DrawMediaBlock(*Data.GadgetData, YPos, *Block.Mediablock)
-		Protected Start, Finish, FirstBlock, LastBlock, loop, Mediablock = #True
+		Protected Start, Finish, FirstBlock, LastBlock, loop, Mediablock = #True, DragFirstBlock, DragLastBlock
 		
 		Start = (*Block\FirstBlock - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width
-		Finish = (*Block\LastBlock - *Block\FirstBlock) * *Data\Meas_Column_Width
+		Finish = (*Block\LastBlock - *Block\FirstBlock + 1) * *Data\Meas_Column_Width 
 		
 		If Finish + Start > (*Data\State_HorizontalScroll + *Data\Meas_Column_Visible) * *Data\Meas_Column_Width
 			LastBlock = *Data\State_HorizontalScroll + *Data\Meas_Column_Visible
-			Finish = (LastBlock - *Block\FirstBlock) * *Data\Meas_Column_Width
+			Finish = (LastBlock - *Block\FirstBlock + 1) * *Data\Meas_Column_Width
 		Else
 			LastBlock = *Block\LastBlock
 		EndIf
@@ -982,11 +1124,21 @@ Module PureTL
 		If Start < -#Style_Body_DefaultColumnWidth
 			FirstBlock = *Data\State_HorizontalScroll
 			Start = *Data\Meas_List_Width - 1
-			Finish = (LastBlock - FirstBlock) * *Data\Meas_Column_Width + 1
+			Finish = (LastBlock - FirstBlock + 1) * *Data\Meas_Column_Width + 1
 			Mediablock = #False
 		Else
 			Start + *Data\Meas_List_Width
 			FirstBlock = *Block\FirstBlock
+		EndIf
+		
+		If *Block\State = #State_Hot
+			If Mediablock
+				AddPathMediaBlock(Start - 1, YPos + #Style_MediaBlock_Margin - 1, Finish + 2, #Style_MediaBlock_Height + 2, #Style_Body_DefaultColumnWidth)
+			Else
+				AddPathBox(Start - 1, YPos + #Style_MediaBlock_Margin - 1, Finish + 2, #Style_MediaBlock_Height + 2)
+			EndIf
+			VectorSourceColor(SetAlpha($FF, $F0F0F0))
+			StrokePath(3)
 		EndIf
 		
 		If Mediablock
@@ -999,6 +1151,26 @@ Module PureTL
 		FillPath(#PB_Path_Preserve)
 		VectorSourceColor( SetAlpha(*Data\Colors_Body_StrokeBlending(*Block\State), *Data\Content_DisplayedLines()\Object\Color))
 		StrokePath(2)
+		
+		If *Block\State = #State_Drag
+			DragFirstBlock = *Block\FirstBlock + *Data\Drag_Offset
+			If DragFirstBlock < #Style_Body_ColumnMargin
+				DragFirstBlock = #Style_Body_ColumnMargin
+			EndIf
+			
+			DragLastBlock = DragFirstBlock + (*Block\LastBlock - *Block\FirstBlock)
+			If DragLastBlock > *Data\Content_Duration - #Style_Body_ColumnMargin
+				DragLastBlock = *Data\Content_Duration - #Style_Body_ColumnMargin
+				DragFirstBlock = DragLastBlock - (*Block\LastBlock - *Block\FirstBlock)
+			EndIf
+			
+			AddPathMediaBlock((DragFirstBlock - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width - 1  + *Data\Meas_List_Width,
+			                  YPos + #Style_MediaBlock_Margin - 1,
+			                  (DragLastBlock - DragFirstBlock + 1) * *Data\Meas_Column_Width + 2,
+			                  #Style_MediaBlock_Height + 2, #Style_Body_DefaultColumnWidth)
+			VectorSourceColor(SetAlpha($FF, $F0F0F0))
+			StrokePath(2)
+		EndIf
 		
 		If *Data\Meas_Column_Width > #Style_Column_MinimumDisplaySize
 			For loop = FirstBlock To LastBlock
@@ -1103,8 +1275,37 @@ Module PureTL
 		
 	EndProcedure
 	
-	Procedure MoveMB(*Block.MediaBlock, Offset)
+	Procedure MoveMB(*Data.GadgetData, *Block.MediaBlock, Offset)
+		Protected Loop, TargetFirstBlock, TargetLastBlock, TempOffset, ResultOffset, DiffOffset, FixedFirstBlock, FixedLastBlock, Success
 		
+		For Loop = *Block\FirstBlock To *Block\LastBlock
+			*Block\Line\MediaBlocks(Loop) = 0
+		Next
+		
+		TargetFirstBlock = *Block\FirstBlock + Offset
+		If TargetFirstBlock < #Style_Body_ColumnMargin
+			TargetFirstBlock = #Style_Body_ColumnMargin
+		EndIf
+		
+		TargetLastBlock = TargetFirstBlock + (*Block\LastBlock - *Block\FirstBlock)
+		If TargetLastBlock > *Data\Content_Duration - #Style_Body_ColumnMargin
+			TargetLastBlock = *Data\Content_Duration - #Style_Body_ColumnMargin
+			TargetFirstBlock = TargetLastBlock - (*Block\LastBlock - *Block\FirstBlock)
+		EndIf
+		
+		FixedFirstBlock = TargetFirstBlock
+		FixedLastBlock = TargetLastBlock
+		
+		
+		
+		*Block\FirstBlock = FixedFirstBlock
+		*Block\LastBlock = FixedLastBlock
+		
+		For Loop = *Block\FirstBlock To *Block\LastBlock
+			*Block\Line\MediaBlocks(Loop) = *Block
+		Next
+		
+		ProcedureReturn Offset
 	EndProcedure
 	
 	Procedure RecurciveFold(*Data.GadgetData, *Line.Line)
@@ -1225,7 +1426,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1175
-; FirstLine = 419
-; Folding = v0BQG-48PAAw
+; CursorPosition = 27
+; Folding = v0BQECgQEAAi
 ; EnableXP

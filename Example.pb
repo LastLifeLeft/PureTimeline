@@ -41,7 +41,7 @@ PureTL::AddDataPoint(0, Line, 32)
 PureTL::AddDataPoint(0, Line, 33)
 PureTL::AddDataPoint(0, Line, 44)
 
-PureTL::AddMediaBlock(0, Line, 12, 32)
+PureTL::AddMediaBlock(0, Line, 12, 37)
 
 Line = PureTL::GetLineID(0, 4)
  PureTL::AddMediaBlock(0, Line, 3, 21, MaterialVector::#Accessibility)
@@ -59,6 +59,6 @@ Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 46
+; CursorPosition = 43
 ; Folding = 9
 ; EnableXP
