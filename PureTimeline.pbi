@@ -6,6 +6,319 @@ CompilerIf Not Defined(CanvasButton, #PB_Module)
 	IncludeFile "CanvasButton\CanvasButton.pbi"
 CompilerEndIf
 
+CompilerIf Not Defined(SortLinkedList, #PB_Module) ; Couldn't figure out a nice way to sort the selected lists with the built in structured list sort, so I'll use this one : https://www.purebasic.fr/english/viewtopic.php?f=12&t=72352 
+	DeclareModule SortLinkedList
+		
+		; v 1.10  March 2, 2019
+		
+		; Procedure Compare(*p1, *p2)
+		; <0 The element pointed to by *p1 goes before the element pointed to by *p2
+		;  0 The element pointed to by *p1 is equivalent to the element pointed to by *p2
+		; >0 The element pointed to by *p1 goes after the element pointed to by *p2
+		
+		Declare _SortLinkedList_ (*LinkedList, *Compare, First=0, Last=-1)
+		
+		Declare SortLinkedListD (List LinkedList.d(), *Compare, First=0, Last=-1)
+		Declare SortLinkedListI (List LinkedList.i(), *Compare, First=0, Last=-1)
+		Declare SortLinkedListS (List LinkedList.s(), *Compare, First=0, Last=-1)
+		
+	EndDeclareModule
+	
+	Module SortLinkedList
+		DisableDebugger
+		EnableExplicit
+		
+		;- >> Structures <<
+		
+		Structure PB_ListHeader
+			*Next.PB_ListHeader
+			*Previous.PB_ListHeader
+			Element.i[0]
+		EndStructure
+		
+		Structure PB_List
+			*First.PB_ListHeader
+			*Last.PB_ListHeader
+			*Current.PB_ListHeader
+			*PtrCurrentVariable.Integer
+			NBElements.i
+			Index.i
+			*StructureMap
+			*Allocator
+			*PositionStack
+			*Object
+			ElementSize.i
+			ElementType.l
+			IsIndexInvalid.b
+			IsDynamic.b
+			IsDynamicObject.b
+		EndStructure
+		
+		;- >> Prototypes <<   
+		
+		Prototype.i ProtoCompare (*p1, *p2)
+		Prototype Proto_SortLinkedListD (List LinkedList.d(), *Compare, First=0, Last=-1)
+		Prototype Proto_SortLinkedListI (List LinkedList.i(), *Compare, First=0, Last=-1)
+		Prototype Proto_SortLinkedListS (List LinkedList.s(), *Compare, First=0, Last=-1)
+		
+		;- >> Procedures << 
+		
+		Procedure _SortLinkedList_ (*LinkedList.PB_List, *Compare.ProtoCompare, First=0, Last=-1)
+			Protected Dim *ListHead(31)
+			Protected Dim *ListTail(31)
+			Protected.PB_ListHeader *EqualItems, *List, *List1, *List2, *Next, *P, *Stop, *Tail, *Tail1, *Tail2
+			Protected.i Count, Direction, Fractional, FractionalCount, i, ListSize0, NumItems, NumLists
+			
+			; Check parameters and return if there is nothing to sort
+			If *LinkedList And *Compare And *LinkedList\NBElements
+				If First < 0 : First = 0 : EndIf
+				If Last < 0 Or Last >= *LinkedList\NBElements
+					Last = *LinkedList\NBElements - 1
+				EndIf
+				NumItems = Last - First + 1
+				If NumItems <= 1
+					ProcedureReturn
+				EndIf     
+			Else
+				ProcedureReturn
+			EndIf
+			
+			; Invalidate the current index value
+			*LinkedList\IsIndexInvalid = #True
+			
+			; Seek the first element to sort
+			If First << 1 < *LinkedList\NBElements
+				; Seek element starting from beginning
+				i = First
+				*List = *LinkedList\First
+				While i
+					*List = *List\Next
+					i - 1
+				Wend 
+			Else
+				; Seek element starting from end
+				i = *LinkedList\NBElements - 1 - First
+				*List = *LinkedList\Last
+				While i
+					*List = *List\Previous
+					i - 1
+				Wend
+			EndIf
+			
+			; Store pointer to previous element
+			*P = *List\Previous
+			
+			; Calculate the initial list size so that
+			; the number of lists is a power of two
+			ListSize0 = NumItems >> 3
+			For i = 0 To 5
+				ListSize0 | ListSize0 >> (1 << i)
+			Next
+			NumLists = ListSize0 + 1
+			ListSize0 = NumItems / NumLists
+			Fractional = NumItems - NumLists * ListSize0
+			
+			;- >> Sort <<
+			While NumItems
+				
+				;- >> Build list using insertion sort <<
+				*Next = *List\Next
+				*Tail = *List
+				*List\Next = #Null
+				*List\Previous = #Null
+				*List1 = *List
+				*EqualItems = #Null
+				Direction = 0
+				
+				Count = ListSize0
+				FractionalCount + Fractional
+				If FractionalCount >= NumLists
+					FractionalCount - NumLists
+					Count + 1
+				EndIf
+				NumItems - Count
+				
+				While Count > 1
+					*List2 = *Next
+					*Next = *List2\Next
+					
+					; Compare against previous insertion point
+					i = *Compare(@*List1\Element, @*List2\Element)
+					If i = 0
+						; No search; insert directly after previous insertion point
+						If *EqualItems = #Null
+							*EqualItems = *List1
+						EndIf   
+						*Stop = *List1
+					Else
+						If i > 0
+							; Search back from previous insertion point
+							If *EqualItems
+								*List1 = *EqualItems
+							EndIf
+							*Stop = #Null
+							*List1 = *List1\Previous
+							If Direction And Direction <> -1
+								Direction = -2
+							Else
+								Direction = -1
+							EndIf           
+						Else
+							; Search back from tail
+							*Stop = *List1
+							*List1 = *Tail
+							If Direction And Direction <> 1
+								Direction = -2
+							Else
+								Direction = 1
+							EndIf
+						EndIf
+						*EqualItems = #Null
+					EndIf
+					; Backward search
+					While *List1 <> *Stop And *Compare(@*List1\Element, @*List2\Element) > 0
+						*List1 = *List1\Previous
+					Wend
+					; Insert
+					If *List1
+						; Insert *List2 after *List1
+						*List2\Next = *List1\Next
+						*List2\Previous = *List1
+						If *List2\Next
+							*List2\Next\Previous = *List2
+						Else
+							*Tail = *List2
+						EndIf
+						*List1\Next = *List2             
+					Else
+						; Insert *List2 before *List
+						*List2\Next = *List
+						*List2\Previous = #Null
+						*List\Previous = *List2
+						*List = *List2
+					EndIf
+					*List1 = *List2
+					
+					Count - 1
+				Wend
+				
+				; Merge with other list(s)
+				For i = 0 To 31
+					If *ListHead(i)
+						If *List
+							*List1 = *ListHead(i)
+							*Tail1 = *ListTail(i)
+							*List2 = *List
+							*Tail2 = *Tail
+							
+							;- >> Merge List1 and List2 <<
+							
+							If Direction = -1 And *Compare(@*List1\Element, @*Tail2\Element) > 0
+								; Entire List1 goes after List2
+								*Tail2\Next = *List1
+								*List1\Previous = *Tail2
+								*List = *List2
+								*Tail = *Tail1
+							ElseIf Direction >= 0 And *Compare(@*Tail1\Element, @*List2\Element) <= 0
+								; Entire List2 goes after List1
+								*Tail1\Next = *List2
+								*List2\Previous = *Tail1
+								*List = *List1
+								*Tail = *Tail2
+							Else
+								Direction = -2
+								; Merge List1 and List2 element by element
+								
+								If *Compare(@*List1\Element, @*List2\Element) <= 0
+									*List = *List1
+									*List1 = *List1\Next
+								Else
+									*List = *List2
+									*List2 = *List2\Next
+								EndIf
+								*Tail = *List
+								
+								While *List1 And *List2
+									If *Compare(@*List1\Element, @*List2\Element) <= 0
+										*Tail\Next = *List1
+										*List1\Previous = *Tail
+										*Tail = *List1
+										*List1 = *List1\Next
+									Else
+										*Tail\Next = *List2
+										*List2\Previous = *Tail
+										*Tail = *List2
+										*List2 = *List2\Next
+									EndIf
+								Wend
+								
+								If *List1
+									*Tail\Next = *List1
+									*List1\Previous = *Tail
+									*Tail = *Tail1
+								ElseIf *List2
+									*Tail\Next = *List2
+									*List2\Previous = *Tail
+									*Tail = *Tail2
+								EndIf
+								
+							EndIf
+							
+							;- >> End of merge <<
+							
+						Else
+							*List = *ListHead(i)
+							*Tail = *ListTail(i)
+						EndIf
+						*ListHead(i) = #Null
+					ElseIf NumItems
+						Break
+					EndIf
+				Next
+				
+				If NumItems
+					If i > 31 : i = 31 : EndIf
+					*ListHead(i) = *List
+					*ListTail(i) = *Tail
+					*List = *Next
+				EndIf
+				
+			Wend
+			
+			; Update *First and *Last when needed
+			If First = 0
+				*LinkedList\First = *List
+			Else
+				*P\Next = *List
+				*List\Previous = *P
+			EndIf
+			If Last = *LinkedList\NBElements - 1
+				*LinkedList\Last = *Tail
+			Else
+				*Tail\Next = *Next
+				*Next\Previous = *Tail
+			EndIf
+			
+		EndProcedure 
+		
+		Procedure SortLinkedListD (List LinkedList.d(), *Compare, First=0, Last=-1)
+			Protected SortLinkedList.Proto_SortLinkedListD = @_SortLinkedList_()
+			SortLinkedList(LinkedList(), *Compare, First, Last)
+		EndProcedure
+		
+		Procedure SortLinkedListI (List LinkedList.i(), *Compare, First=0, Last=-1)
+			Protected SortLinkedList.Proto_SortLinkedListI = @_SortLinkedList_()
+			SortLinkedList(LinkedList(), *Compare, First, Last)
+		EndProcedure
+		
+		Procedure SortLinkedListS (List LinkedList.s(), *Compare, First=0, Last=-1)
+			Protected SortLinkedList.Proto_SortLinkedListS = @_SortLinkedList_()
+			SortLinkedList(LinkedList(), *Compare, First, Last)
+		EndProcedure
+		
+	EndModule
+CompilerEndIf
+
 DeclareModule PureTL
 	; Public variables, structures, constants...
 	EnumerationBinary ;Flags
@@ -181,8 +494,12 @@ Module PureTL
 		*Line.Line
 	EndStructure
 	
-	Structure LineAdress
-		*Object.Line
+	Structure DPAdress 				; Dirty workaround for the structured list sorting procedures
+		*Object.DataPoint
+	EndStructure
+	
+	Structure MBAdress				; Dirty workaround for the structured list sorting procedures
+		*Object.MediaBlock
 	EndStructure
 	
 	Structure Line
@@ -196,23 +513,15 @@ Module PureTL
 		*Parent.Line
 		*ParentListAdress
 		
-		List Content_Lines.LineAdress()
+		List *Content_Lines.Line()
 		Array *DataPoints.DataPoint(1)
 		Array *MediaBlocks.MediaBlock(1)
 	EndStructure
 	
-	Structure Item
-		Text.s
-	EndStructure
-	
-	Structure ItemAdress
-		*Object.Item
-	EndStructure
-	
 	Structure GadgetData
 		; Content
-		List Content_Lines.LineAdress()
-		List Content_DisplayedLines.LineAdress()
+		List *Content_Lines.Line() 				
+		List *Content_DisplayedLines.Line()
 		
 		Content_Duration.i
 		
@@ -264,7 +573,7 @@ Module PureTL
 		
 		; State
 		State_SelectedLine.i
-		List *State_SelectedMediaBlocks.Mediablock()
+		List *State_SelectedMediaBlocks.MediaBlock()
 		List *State_SelectedDataPoints.DataPoint()
 		State_UserAction.i
 		State_VerticalScroll.i
@@ -337,6 +646,12 @@ Module PureTL
 	Declare RecurciveFold(*Data.GadgetData, *Line.Line)
 	Declare RecurciveUnFold(*Data.GadgetData, *Line.Line)
 	Declare ToggleFold(Gadget, Item)
+	Declare CompareAscending(*a.MBAdress, *b.MBAdress)
+	Declare CompareDescending(*a.MBAdress, *b.MBAdress)
+	
+	Prototype Proto_SortMediaBlocks(List LinkedList.MediaBlock(), *Compare, First=0, Last=-1)
+	Global SortMediaBlocks.Proto_SortMediaBlocks = SortLinkedList::@_SortLinkedList_()
+	
 	;}
 	
 	;{ Public procedures
@@ -489,7 +804,7 @@ Module PureTL
 				If ListSize(*ParentID\Content_Lines()) = 0
 					*PreviousLine = *ParentID
 				Else
-					*PreviousLine = *ParentID\Content_Lines()\Object
+					*PreviousLine = *ParentID\Content_Lines()
 				EndIf
 			Else
 				If Position = 0
@@ -497,12 +812,12 @@ Module PureTL
 					*PreviousLine = *ParentID
 				Else
 					SelectElement(*ParentID\Content_Lines(), Position - 1)
-					*PreviousLine = *ParentID\Content_Lines()\Object
+					*PreviousLine = *ParentID\Content_Lines()
 				EndIf
 			EndIf
 			
 			AddElement(*ParentID\Content_Lines())
-			*ParentID\Content_Lines()\Object = *NewLine
+			*ParentID\Content_Lines() = *NewLine
 			
 			*NewLine\HOffset = *ParentID\HOffset + #Style_List_TextHOffset
 			
@@ -510,7 +825,7 @@ Module PureTL
 				If *ParentID\DisplayListAdress
 					ChangeCurrentElement(*Data\Content_DisplayedLines(), *PreviousLine)
 					AddElement(*Data\Content_DisplayedLines())
-					*Data\Content_DisplayedLines()\Object = *NewLine
+					*Data\Content_DisplayedLines() = *NewLine
 					*NewLine\DisplayListAdress = @*Data\Content_DisplayedLines()
 				EndIf
 			ElseIf *ParentID\Fold = #NoFold
@@ -529,13 +844,13 @@ Module PureTL
 				AddElement(*Data\Content_Lines())
 			Else
 				SelectElement(*Data\Content_Lines(), Position)
-				ChangeCurrentElement(*Data\Content_DisplayedLines(), *Data\Content_Lines()\Object\DisplayListAdress)
+				ChangeCurrentElement(*Data\Content_DisplayedLines(), *Data\Content_Lines()\DisplayListAdress)
 				InsertElement(*Data\Content_DisplayedLines())
 				InsertElement(*Data\Content_Lines())
 			EndIf
 			
-			*Data\Content_DisplayedLines()\Object = *NewLine
-			*Data\Content_Lines()\Object = *NewLine
+			*Data\Content_DisplayedLines() = *NewLine
+			*Data\Content_Lines() = *NewLine
 			
 			*NewLine\HOffset = #Style_List_LineMargin
 			*NewLine\ParentListAdress = @*Data\Content_Lines()
@@ -570,12 +885,12 @@ Module PureTL
 	Procedure GetLineID(Gadget, Position, *ParentID.Line = 0)
 		If *ParentID
 			If SelectElement(*ParentID\Content_Lines(), Position)
-				ProcedureReturn *ParentID\Content_Lines()\Object
+				ProcedureReturn *ParentID\Content_Lines()
 			EndIf
 		Else
 			Protected *Data.GadgetData = GetGadgetData(Gadget)
 			If SelectElement(*Data\Content_Lines(), Position)
-				ProcedureReturn *Data\Content_Lines()\Object
+				ProcedureReturn *Data\Content_Lines()
 			EndIf
 		EndIf
 	EndProcedure
@@ -662,9 +977,9 @@ Module PureTL
 								MouseY % #Style_Line_Height
 								;Check if the mouse is hovering above the fold
 								SelectElement(*Data\Content_DisplayedLines(), Line)
-								If (*Data\Content_DisplayedLines()\Object\Fold And
-								    MouseX > *Data\Content_DisplayedLines()\Object\HOffset -4 And
-								    MouseX < *Data\Content_DisplayedLines()\Object\HOffset + #Style_List_FoldSize + 4 And
+								If (*Data\Content_DisplayedLines()\Fold And
+								    MouseX > *Data\Content_DisplayedLines()\HOffset -4 And
+								    MouseX < *Data\Content_DisplayedLines()\HOffset + #Style_List_FoldSize + 4 And
 								    MouseY > #Style_List_FoldOffset -4 And
 								    MouseY < #Style_List_FoldOffset + #Style_List_FoldSize + 4 )
 									WarmToggle = Line
@@ -687,11 +1002,11 @@ Module PureTL
 								MouseY % #Style_Line_Height
 								MouseX % *Data\Meas_Column_Width
 								
-								If *Data\Content_DisplayedLines()\Object\DataPoints(Column) And #False
+								If *Data\Content_DisplayedLines()\DataPoints(Column) And #False
 									
-								ElseIf *Data\Content_DisplayedLines()\Object\MediaBlocks(Column)
+								ElseIf *Data\Content_DisplayedLines()\MediaBlocks(Column)
 									If MouseY > #Style_MediaBlock_Margin And MouseY < #Style_MediaBlock_Margin + #Style_MediaBlock_Height
-										*WarmMediaBlock = *Data\Content_DisplayedLines()\Object\MediaBlocks(Column)
+										*WarmMediaBlock = *Data\Content_DisplayedLines()\MediaBlocks(Column)
 									EndIf
 								EndIf
 								
@@ -702,7 +1017,7 @@ Module PureTL
 							StartLocalRedrawing
 							If *Data\Draw_WarmLine > - 1
 								SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmLine)
-								*Data\Content_DisplayedLines()\Object\State = #State_Cold
+								*Data\Content_DisplayedLines()\State = #State_Cold
 								*Data\Draw_WarmLine = -1
 								DrawLine(*Data)
 							EndIf
@@ -710,7 +1025,7 @@ Module PureTL
 							If WarmLine > -1
 								*Data\Draw_WarmLine = WarmLine
 								SelectElement(*Data\Content_DisplayedLines(), *Data\Draw_WarmLine)
-								*Data\Content_DisplayedLines()\Object\State = #State_Warm
+								*Data\Content_DisplayedLines()\State = #State_Warm
 								DrawLine(*Data)
 							EndIf
 						EndIf
@@ -812,7 +1127,7 @@ Module PureTL
 								StartLocalRedrawing
 								If *Data\State_SelectedLine > -1
 									SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
-									*Data\Content_DisplayedLines()\Object\State = #State_Cold
+									*Data\Content_DisplayedLines()\State = #State_Cold
 									DrawLine(*Data)
 								EndIf
 								
@@ -820,7 +1135,7 @@ Module PureTL
 								*Data\Draw_WarmLine = - 1
 								
 								SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
-								*Data\Content_DisplayedLines()\Object\State = #State_Hot
+								*Data\Content_DisplayedLines()\State = #State_Hot
 								DrawLine(*Data)
 								StopVectorDrawing()
 							ElseIf *Data\Draw_WarmToggle > -1
@@ -914,26 +1229,20 @@ Module PureTL
 						*Data\State_UserAction = #Action_Hover
 						
 						; Reordering the list to avoid items being moved several time during a multi-items drag...
-						Debug "Offset : " + *Data\Drag_Offset
 						If *Data\Drag_Offset > 0
-							SortStructuredList(*Data\State_SelectedDataPoints(), #PB_Sort_Descending, OffsetOf(DataPoint\Position), #PB_Integer)
-							SortStructuredList(*Data\State_SelectedMediaBlocks(), #PB_Sort_Descending, OffsetOf(Mediablock\FirstBlock), #PB_Integer)
+							SortMediaBlocks(*Data\State_SelectedMediaBlocks(), @CompareDescending())
 						Else
-							SortStructuredList(*Data\State_SelectedDataPoints(), #PB_Sort_Ascending, OffsetOf(DataPoint\Position), #PB_Integer)
-							SortStructuredList(*Data\State_SelectedMediaBlocks(), #PB_Sort_Ascending, OffsetOf(Mediablock\FirstBlock), #PB_Integer)
+							SortMediaBlocks(*Data\State_SelectedMediaBlocks(), @CompareAscending())
 						EndIf
 						
 						ForEach *Data\State_SelectedDataPoints()
 							*Data\State_SelectedDataPoints()\State = #State_Hot
 						Next
 						
-						Debug "pendant---"
-						ResetList(*Data\State_SelectedMediaBlocks())
-						While NextElement(*Data\State_SelectedMediaBlocks())
-							Debug *Data\State_SelectedMediaBlocks()\FirstBlock
+						ForEach *Data\State_SelectedMediaBlocks()
 							*Data\State_SelectedMediaBlocks()\State = #State_Hot
 							MoveMB(*Data, *Data\State_SelectedMediaBlocks(), *Data\Drag_Offset)
-						Wend
+						Next
 						
 						Redraw(Gadget)
 						;}
@@ -1044,15 +1353,15 @@ Module PureTL
 		Protected Index = ListIndex(*Data\Content_DisplayedLines()) - *Data\State_VerticalScroll, ContentLoop, ContentLoopEnd, YPos = *Data\Meas_Header_Height + Index * #Style_Line_Height
 		
 		; Body
-		If (Index + *Data\State_VerticalScroll) % 2 Or *Data\Content_DisplayedLines()\Object\State
+		If (Index + *Data\State_VerticalScroll) % 2 Or *Data\Content_DisplayedLines()\State
 			VectorSourceColor(SetAlpha($FF,*Data\Colors_Body_AltBack))
 		Else
 			VectorSourceColor(SetAlpha($FF,*Data\Colors_Body_Back))
 		EndIf
 		AddPathBox(*Data\Meas_List_Width, YPos, *Data\Meas_Body_Width, #Style_Line_Height)
-		If *Data\Content_DisplayedLines()\Object\State
+		If *Data\Content_DisplayedLines()\State
 			FillPath(#PB_Path_Preserve)
-			VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(*Data\Content_DisplayedLines()\Object\State),*Data\Colors_List_Front))
+			VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(*Data\Content_DisplayedLines()\State),*Data\Colors_List_Front))
 			FillPath()
 		EndIf
 		FillPath()
@@ -1060,11 +1369,11 @@ Module PureTL
 		ContentLoopEnd = *Data\State_HorizontalScroll + *Data\Meas_Column_Visible
 		
 		For ContentLoop = *Data\State_HorizontalScroll To ContentLoopEnd
-			If *Data\Content_DisplayedLines()\Object\Mediablocks(ContentLoop)
-				DrawMediaBlock(*Data, YPos, *Data\Content_DisplayedLines()\Object\Mediablocks(ContentLoop))
-				ContentLoop = *Data\Content_DisplayedLines()\Object\Mediablocks(ContentLoop)\LastBlock
+			If *Data\Content_DisplayedLines()\Mediablocks(ContentLoop)
+				DrawMediaBlock(*Data, YPos, *Data\Content_DisplayedLines()\Mediablocks(ContentLoop))
+				ContentLoop = *Data\Content_DisplayedLines()\Mediablocks(ContentLoop)\LastBlock
 			ElseIf *Data\Meas_Column_Width > #Style_Column_MinimumDisplaySize
-				If *Data\Content_DisplayedLines()\Object\DataPoints(ContentLoop)
+				If *Data\Content_DisplayedLines()\DataPoints(ContentLoop)
 					DrawDataPoint(*Data, 0, YPos)
 				EndIf
 			EndIf
@@ -1073,39 +1382,39 @@ Module PureTL
 		; List
 		AddPathBox(0, YPos , *Data\Meas_List_Width, #Style_Line_Height)
 		VectorSourceColor(SetAlpha($FF, *Data\Colors_List_Back))
-		If *Data\Content_DisplayedLines()\Object\State
+		If *Data\Content_DisplayedLines()\State
 			FillPath(#PB_Path_Preserve)
-			VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(*Data\Content_DisplayedLines()\Object\State),*Data\Colors_List_Front))
+			VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(*Data\Content_DisplayedLines()\State),*Data\Colors_List_Front))
 		EndIf
 		FillPath()
 		
-		If *Data\Content_DisplayedLines()\Object\Fold
+		If *Data\Content_DisplayedLines()\Fold
 			If Index = *Data\Draw_WarmToggle
-				If *Data\Content_DisplayedLines()\Object\State = #State_Cold
+				If *Data\Content_DisplayedLines()\State = #State_Cold
 					VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(#State_Hot),*Data\Colors_List_Front))
 				Else
 					VectorSourceColor(SetAlpha($FF,*Data\Colors_List_Back))
 				EndIf
-				MaterialVector::AddPathRoundedBox(*Data\Content_DisplayedLines()\Object\HOffset - 5, YPos + #Style_List_FoldOffset - 5, #Style_List_FoldSize + 10, #Style_List_FoldSize + 10, 4)
+				MaterialVector::AddPathRoundedBox(*Data\Content_DisplayedLines()\HOffset - 5, YPos + #Style_List_FoldOffset - 5, #Style_List_FoldSize + 10, #Style_List_FoldSize + 10, 4)
 				FillPath()
-				MaterialVector::Draw(MaterialVector::#Chevron, *Data\Content_DisplayedLines()\Object\HOffset,
+				MaterialVector::Draw(MaterialVector::#Chevron, *Data\Content_DisplayedLines()\HOffset,
 				                     YPos + #Style_List_FoldOffset,
 				                     #Style_List_FoldSize,
 				                     SetAlpha(#Color_Blending_Front_Hot ,*Data\Colors_List_Front), 0,
-				                     MaterialVector::#style_rotate_90 * *Data\Content_DisplayedLines()\Object\Fold)
+				                     MaterialVector::#style_rotate_90 * *Data\Content_DisplayedLines()\Fold)
 			Else
-				MaterialVector::Draw(MaterialVector::#Chevron, *Data\Content_DisplayedLines()\Object\HOffset,
+				MaterialVector::Draw(MaterialVector::#Chevron, *Data\Content_DisplayedLines()\HOffset,
 				                     YPos + #Style_List_FoldOffset,
 				                     #Style_List_FoldSize,
 				                     SetAlpha(#Color_Blending_Front_Warm ,*Data\Colors_List_Front), 0,
-				                     MaterialVector::#style_rotate_90 * *Data\Content_DisplayedLines()\Object\Fold)
+				                     MaterialVector::#style_rotate_90 * *Data\Content_DisplayedLines()\Fold)
 			EndIf
-			MovePathCursor(*Data\Content_DisplayedLines()\Object\HOffset + #Style_List_FoldIconOffset, YPos + #Style_List_TextVOffset)
+			MovePathCursor(*Data\Content_DisplayedLines()\HOffset + #Style_List_FoldIconOffset, YPos + #Style_List_TextVOffset)
 		Else
-			MovePathCursor(*Data\Content_DisplayedLines()\Object\HOffset, YPos + #Style_List_TextVOffset)
+			MovePathCursor(*Data\Content_DisplayedLines()\HOffset, YPos + #Style_List_TextVOffset)
 		EndIf
 		VectorSourceColor(SetAlpha(#Color_Blending_Front_Warm ,*Data\Colors_List_Front))
-		DrawVectorText(*Data\Content_DisplayedLines()\Object\Text)
+		DrawVectorText(*Data\Content_DisplayedLines()\Text)
 	EndProcedure
 	
 	Procedure DrawMediaBlock(*Data.GadgetData, YPos, *Block.Mediablock)
@@ -1147,9 +1456,9 @@ Module PureTL
 			AddPathBox(Start, YPos + #Style_MediaBlock_Margin, Finish, #Style_MediaBlock_Height)
 		EndIf
 		
-		VectorSourceColor( SetAlpha(*Data\Colors_Body_FillBlending(*Block\State), *Data\Content_DisplayedLines()\Object\Color))
+		VectorSourceColor( SetAlpha(*Data\Colors_Body_FillBlending(*Block\State), *Data\Content_DisplayedLines()\Color))
 		FillPath(#PB_Path_Preserve)
-		VectorSourceColor( SetAlpha(*Data\Colors_Body_StrokeBlending(*Block\State), *Data\Content_DisplayedLines()\Object\Color))
+		VectorSourceColor( SetAlpha(*Data\Colors_Body_StrokeBlending(*Block\State), *Data\Content_DisplayedLines()\Color))
 		StrokePath(2)
 		
 		If *Block\State = #State_Drag
@@ -1174,7 +1483,7 @@ Module PureTL
 		
 		If *Data\Meas_Column_Width > #Style_Column_MinimumDisplaySize
 			For loop = FirstBlock To LastBlock
-				If *Data\Content_DisplayedLines()\Object\DataPoints(loop)
+				If *Data\Content_DisplayedLines()\DataPoints(loop)
 					
 				EndIf
 			Next
@@ -1276,32 +1585,73 @@ Module PureTL
 	EndProcedure
 	
 	Procedure MoveMB(*Data.GadgetData, *Block.MediaBlock, Offset)
-		Protected Loop, TargetFirstBlock, TargetLastBlock, TempOffset, ResultOffset, DiffOffset, FixedFirstBlock, FixedLastBlock, Success
+		Protected BlockDuration = *Block\LastBlock - *Block\FirstBlock + 1, loop
+		Protected TargetFirstBlock, TargetLastBlock, Success, TargetOffset, ResultOffset
 		
-		For Loop = *Block\FirstBlock To *Block\LastBlock
+		For loop = *Block\FirstBlock To *Block\LastBlock
 			*Block\Line\MediaBlocks(Loop) = 0
 		Next
 		
-		TargetFirstBlock = *Block\FirstBlock + Offset
-		If TargetFirstBlock < #Style_Body_ColumnMargin
-			TargetFirstBlock = #Style_Body_ColumnMargin
+		If *Block\FirstBlock + Offset < #Style_Body_ColumnMargin
+			Offset = #Style_Body_ColumnMargin - *Block\FirstBlock 
 		EndIf
 		
-		TargetLastBlock = TargetFirstBlock + (*Block\LastBlock - *Block\FirstBlock)
-		If TargetLastBlock > *Data\Content_Duration - #Style_Body_ColumnMargin
-			TargetLastBlock = *Data\Content_Duration - #Style_Body_ColumnMargin
-			TargetFirstBlock = TargetLastBlock - (*Block\LastBlock - *Block\FirstBlock)
+		If *Block\LastBlock + Offset > *Data\Content_Duration - #Style_Body_ColumnMargin
+			Offset - ((*Block\LastBlock + Offset) - (*Data\Content_Duration - #Style_Body_ColumnMargin))
 		EndIf
+		 
+		Repeat
+			Success = #True
+			TargetFirstBlock =  *Block\FirstBlock + Offset
+			TargetLastBlock = *Block\LastBlock + Offset
+			
+			If Offset > 0
+				For loop = TargetLastBlock To TargetFirstBlock Step -1 ; Can't use a variable as a step?
+					If *Block\Line\MediaBlocks(Loop)
+ 						; This is used to determine in which direction the block should be moved. I'm expecting it to fail in some edge cases but have no time to test it. If it's the case, replace it with TargetOffset = TargetLastBlock - *Block\Line\MediaBlocks(Loop)\FirstBlock +1
+						If TargetFirstBlock < (*Block\Line\MediaBlocks(Loop)\FirstBlock + *Block\Line\MediaBlocks(Loop)\LastBlock) * 0.5 
+							TargetOffset = TargetLastBlock - *Block\Line\MediaBlocks(Loop)\FirstBlock + 1
+						Else
+							TargetOffset = TargetFirstBlock - *Block\Line\MediaBlocks(Loop)\LastBlock - 1
+						EndIf
+						
+						ResultOffset = MoveMB(*Data, *Block\Line\MediaBlocks(Loop), TargetOffset)
+						
+						If Not ResultOffset = TargetOffset
+							Offset = Offset - (TargetOffset - ResultOffset)
+							Success = #False
+							Break
+						EndIf
+						
+					EndIf
+				Next
+			Else
+				For loop = TargetFirstBlock To TargetLastBlock
+					If *Block\Line\MediaBlocks(Loop)
+						; Same as the above, replace it with TargetOffset = TargetFirstBlock - *Block\Line\MediaBlocks(Loop)\LastBlock - 1
+						If TargetFirstBlock < (*Block\Line\MediaBlocks(Loop)\FirstBlock + *Block\Line\MediaBlocks(Loop)\LastBlock) * 0.5 
+							TargetOffset = TargetLastBlock - *Block\Line\MediaBlocks(Loop)\FirstBlock + 1
+						Else
+							TargetOffset = TargetFirstBlock - *Block\Line\MediaBlocks(Loop)\LastBlock - 1
+						EndIf
+						
+						ResultOffset = MoveMB(*Data, *Block\Line\MediaBlocks(Loop), TargetOffset)
+						
+						If Not ResultOffset = TargetOffset
+							Offset = Offset - (TargetOffset - ResultOffset)
+							Success = #False
+							Break
+						EndIf
+						
+					EndIf
+				Next
+			EndIf
+		Until Success = #True
 		
-		FixedFirstBlock = TargetFirstBlock
-		FixedLastBlock = TargetLastBlock
+		*Block\FirstBlock = TargetFirstBlock
+		*Block\LastBlock =  TargetLastBlock
 		
-		
-		
-		*Block\FirstBlock = FixedFirstBlock
-		*Block\LastBlock = FixedLastBlock
-		
-		For Loop = *Block\FirstBlock To *Block\LastBlock
+		For loop = *Block\FirstBlock To *Block\LastBlock
 			*Block\Line\MediaBlocks(Loop) = *Block
 		Next
 		
@@ -1314,12 +1664,12 @@ Module PureTL
 		ForEach *Line\Content_Lines()
 			NextElement(*Data\Content_DisplayedLines())
 			
-			If *Line\Content_Lines()\Object\Fold = #Unfolded
-				Result + RecurciveFold(*Data.GadgetData, *Line\Content_Lines()\Object)
+			If *Line\Content_Lines()\Fold = #Unfolded
+				Result + RecurciveFold(*Data.GadgetData, *Line\Content_Lines())
 			EndIf
 			
 			DeleteElement(*Data\Content_DisplayedLines())
-			*Line\Content_Lines()\Object\DisplayListAdress = 0
+			*Line\Content_Lines()\DisplayListAdress = 0
 			Result + 1
 		Next
 		
@@ -1331,11 +1681,11 @@ Module PureTL
 		
 		ForEach *Line\Content_Lines()
 			AddElement(*Data\Content_DisplayedLines())
-			*Data\Content_DisplayedLines()\Object = *Line\Content_Lines()\Object
-			*Line\Content_Lines()\Object\DisplayListAdress= @*Data\Content_DisplayedLines()
+			*Data\Content_DisplayedLines() = *Line\Content_Lines()
+			*Line\Content_Lines()\DisplayListAdress= @*Data\Content_DisplayedLines()
 			
-			If *Line\Content_Lines()\Object\Fold = #Unfolded
-				Result + RecurciveUnFold(*Data.GadgetData, *Line\Content_Lines()\Object)
+			If *Line\Content_Lines()\Fold = #Unfolded
+				Result + RecurciveUnFold(*Data.GadgetData, *Line\Content_Lines())
 			EndIf
 			Result + 1
 		Next
@@ -1349,25 +1699,25 @@ Module PureTL
 		SelectElement(*Data\Content_DisplayedLines(), Item)
 		Index = ListIndex(*Data\Content_DisplayedLines())
 		
-		*Line.Line = *Data\Content_DisplayedLines()\Object
+		*Line.Line = *Data\Content_DisplayedLines()
 		
-		If *Data\Content_DisplayedLines()\Object\Fold = #Folded
-			*Data\Content_DisplayedLines()\Object\Fold = #Unfolded
-			Offset = RecurciveUnFold(*Data.GadgetData, *Data\Content_DisplayedLines()\Object)
+		If *Data\Content_DisplayedLines()\Fold = #Folded
+			*Data\Content_DisplayedLines()\Fold = #Unfolded
+			Offset = RecurciveUnFold(*Data.GadgetData, *Data\Content_DisplayedLines())
 			
 			If *Data\State_SelectedLine > Index
 				*Data\State_SelectedLine + Offset
 			EndIf
 			
 		Else
-			*Data\Content_DisplayedLines()\Object\Fold = #Folded
-			Offset = RecurciveFold(*Data.GadgetData, *Data\Content_DisplayedLines()\Object)
+			*Data\Content_DisplayedLines()\Fold = #Folded
+			Offset = RecurciveFold(*Data.GadgetData, *Data\Content_DisplayedLines())
 			
 			If *Data\State_SelectedLine > Index + Offset
 				*Data\State_SelectedLine - Offset
 			ElseIf *Data\State_SelectedLine > Index
 				SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
-				*Data\Content_DisplayedLines()\Object\State = #State_Cold
+				*Data\Content_DisplayedLines()\State = #State_Cold
 				*Data\State_SelectedLine = -1
 			EndIf
 			
@@ -1377,6 +1727,14 @@ Module PureTL
 		
 		Refit(Gadget)
 		Redraw(Gadget)
+	EndProcedure
+	
+	Procedure CompareAscending(*a.MBAdress, *b.MBAdress)
+		ProcedureReturn *a\Object\FirstBlock - *b\Object\FirstBlock
+	EndProcedure
+	
+	Procedure CompareDescending(*a.MBAdress, *b.MBAdress)
+		ProcedureReturn *b\Object\FirstBlock - *a\Object\FirstBlock
 	EndProcedure
 	;}
 EndModule
@@ -1426,6 +1784,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 27
-; Folding = v0BQECgQEAAi
+; CursorPosition = 1738
+; FirstLine = 569
+; Folding = 8X8DgYMitYAAE9
 ; EnableXP
