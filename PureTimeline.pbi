@@ -405,7 +405,7 @@ Module PureTL
 	EndEnumeration
 	
 	; Functionality
-	#Func_LineSelection = #False
+	#Func_LineSelection = #True
 	#Func_AutoDragScroll = #True		; Will enable the automatic scroll when the user is draging/resizing something outside of the gadget. This uses a few sketchy methods to achieve its goal...
 	
 	; Style
@@ -485,7 +485,6 @@ Module PureTL
 	#Misc_ResizeHotZone = 7
 	#Misc_ResizeFromFirst = 0
 	#Misc_ResizeFromLast = 1
-	
 	
 	Structure MediaBlock
 		BlockType.b
@@ -651,9 +650,15 @@ Module PureTL
 	Declare DrawDataPoint(*Data.GadgetData, x, y)
 	Declare AddPathMediaBlock(x, y, Width, Height, Radius)
 	
-	; Misc
+	; Placement
 	Declare ScrollVertical(Gadget)
 	Declare ScrollHorizontal(Gadget)
+	Declare FocusHorizontal(Gadget)
+	CompilerIf #Func_LineSelection
+		Declare FocusVertical(Gadget)
+	CompilerEndIf
+	
+	; Misc
 	Declare Refit(Gadget)
 	Declare RecurciveDelete(*Data.GadgetData, *Line.Line)
 	Declare ResizeMB(*Data.GadgetData, *Block.MediaBlock, Start, Finish)
@@ -1179,8 +1184,7 @@ Module PureTL
 									*Data\Drag_ScrollOffset = 0
 								EndIf
 							CompilerEndIf
-							
-							Column = (MouseX - *Data\Drag_Origin) / *Data\Meas_Column_Width
+							Column = Round((MouseX - *Data\Drag_Origin) / *Data\Meas_Column_Width, #PB_Round_Nearest)
 							If *Data\State_UserAction = #Action_PlayerMove
 								If Not *Data\Drag_Offset = Column
 									*Data\Drag_Offset = Column
@@ -1197,7 +1201,7 @@ Module PureTL
 						EndIf
 						;}
 					Case #Action_ItemMoveInit, #Action_ItemResizeInit ;{
-						If Abs(MouseX - *Data\Drag_Origin) > 4
+						If Abs(MouseX - *Data\Drag_Origin) > 3
 							*Data\Drag_DeselectMB = #False
 							*Data\Drag_KeepMB = #False
 							*Data\Drag_ScrollStep = 0
@@ -1227,13 +1231,19 @@ Module PureTL
 			Case #PB_EventType_LeftButtonDown ;{
 				If *Data\State_UserAction= #Action_Hover
 					If MouseY < *Data\Meas_Header_Height ;{
-						If *Data\Player_Hover
-							*Data\State_UserAction = #Action_PlayerMove
-							*Data\Drag_Origin = MouseX
-							*Data\Drag_ScrollStep = 0
-							*Data\Drag_ScrollOffset = 0
-							SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_LeftRight)
+						If Not *Data\Player_Hover
+							Column = Round((MouseX - *Data\Meas_List_Width) / *Data\Meas_Column_Width, #PB_Round_Nearest) + *data\State_HorizontalScroll
+							If Column <> *Data\Player_Position
+								*Data\Player_Position = Column
+								*Data\PlayerX = (*Data\Player_Position - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width + *Data\Meas_List_Width - #Style_Player_TopOffset - 0.5
+								Redraw(Gadget)
+							EndIf
 						EndIf
+						
+						*Data\State_UserAction = #Action_PlayerMove
+						*Data\Drag_Origin = MouseX
+						*Data\Drag_ScrollStep = 0
+						*Data\Drag_ScrollOffset = 0
 						;}
 					ElseIf MouseX < *Data\Meas_List_Width;{ 
 						If *Data\Draw_WarmLine > -1
@@ -1405,9 +1415,11 @@ Module PureTL
 						EndIf
 						;}
 					Case #Action_PlayerMove;{
+						CompilerIf #Func_AutoDragScroll
+							*Data\Drag_Timer = #False
+						CompilerEndIf
 						*Data\Player_Position = Min(max(*Data\Player_Position + *Data\Drag_Offset, #Style_Body_ColumnMargin), *Data\Content_Duration - #Style_Body_ColumnMargin)
 						*Data\State_UserAction = #Action_Hover
-						SetGadgetAttribute(Gadget, #PB_Canvas_Cursor, #PB_Cursor_Default)
 						;}
 				EndSelect
 				;}
@@ -1430,6 +1442,117 @@ Module PureTL
 						Redraw(Gadget)
 					EndIf
 				EndIf
+				;}
+			Case #PB_EventType_KeyDown ;{
+				Select GetGadgetAttribute(Gadget, #PB_Canvas_Key)
+					Case #PB_Shortcut_Down ;{
+						CompilerIf #Func_LineSelection
+							If *Data\State_SelectedLine < *Data\Meas_Line_Total
+								
+								Line = *Data\State_SelectedLine
+								*Data\State_SelectedLine + 1
+								
+								If FocusVertical(Gadget)
+									If Line > -1
+										SelectElement(*Data\Content_DisplayedLines(), Line)
+										*Data\Content_DisplayedLines()\State = #State_Cold
+									EndIf
+									SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+									*Data\Content_DisplayedLines()\State = #State_Hot
+									Redraw(Gadget)
+									
+								Else
+									StartLocalRedrawing
+									If Line > -1
+										SelectElement(*Data\Content_DisplayedLines(), Line)
+										*Data\Content_DisplayedLines()\State = #State_Cold
+										DrawLine(*Data)
+									EndIf
+									
+									SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+									*Data\Content_DisplayedLines()\State = #State_Hot
+									DrawLine(*Data)
+									
+									StopVectorDrawing()
+								EndIf
+							EndIf
+						CompilerElse
+							If *Data\Meas_VScrollBar_Visible
+								SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) + 1)
+								If ScrollVertical(Gadget)
+									Redraw(Gadget)
+								EndIf
+							EndIf
+						CompilerEndIf
+						;}
+					Case #PB_Shortcut_Up ;{
+						CompilerIf #Func_LineSelection
+							If *Data\State_SelectedLine > 0
+								Line = *Data\State_SelectedLine
+								*Data\State_SelectedLine - 1
+								
+								If FocusVertical(Gadget)
+									SelectElement(*Data\Content_DisplayedLines(), Line)
+									*Data\Content_DisplayedLines()\State = #State_Cold
+									SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+									*Data\Content_DisplayedLines()\State = #State_Hot
+									Redraw(Gadget)
+								Else
+									StartLocalRedrawing
+									
+									SelectElement(*Data\Content_DisplayedLines(), Line)
+									*Data\Content_DisplayedLines()\State = #State_Cold
+									DrawLine(*Data)
+									
+									SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+									*Data\Content_DisplayedLines()\State = #State_Hot
+									DrawLine(*Data)
+									
+									StopVectorDrawing()
+								EndIf
+							EndIf
+						CompilerElse
+							If *Data\Meas_VScrollBar_Visible
+								SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) - 1)
+								If ScrollVertical(Gadget)
+									Redraw(Gadget)
+								EndIf
+							EndIf
+						CompilerEndIf
+						;}
+					Case #PB_Shortcut_Right ;{
+						If *Data\Player_Position < *Data\Content_Duration - #Style_Body_ColumnMargin
+							If GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control
+								*Data\Player_Position = Min(*Data\Player_Position + 10, *Data\Content_Duration - #Style_Body_ColumnMargin)
+							Else
+								*Data\Player_Position + 1
+							EndIf
+							*Data\PlayerX = (*Data\Player_Position - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width + *Data\Meas_List_Width - #Style_Player_TopOffset - 0.5
+							FocusHorizontal(Gadget)
+							Redraw(Gadget)
+						EndIf
+						;}
+					Case #PB_Shortcut_Left;{
+						If *Data\Player_Position >  #Style_Body_ColumnMargin
+							If GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control
+								*Data\Player_Position = max(*Data\Player_Position - 10, #Style_Body_ColumnMargin)
+							Else
+								*Data\Player_Position - 1
+							EndIf
+							*Data\PlayerX = (*Data\Player_Position - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width + *Data\Meas_List_Width - #Style_Player_TopOffset - 0.5
+							FocusHorizontal(Gadget)
+							Redraw(Gadget)
+						EndIf
+						;}
+						
+					CompilerIf #Func_LineSelection
+					Case #PB_Shortcut_Space		
+						SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+						If *Data\Content_DisplayedLines()\Fold
+							ToggleFold(Gadget, *Data\State_SelectedLine)
+						EndIf
+					CompilerEndIf
+				EndSelect
 				;}
 		EndSelect
 	EndProcedure
@@ -1523,10 +1646,10 @@ Module PureTL
 			AddPathBox(*Data\Meas_List_Width,0 , *Data\Meas_Body_Width + *Data\Meas_VScrollBar_Width, *Data\Meas_Header_Height)
 			VectorSourceColor(SetAlpha($FF, *Data\Colors_Header_Back))
 			FillPath()
-			MovePathCursor(*Data\Meas_List_Width, *Data\Meas_Header_Height)
-			AddPathLine(*Data\Meas_Body_Width, 0)
-			VectorSourceColor(SetAlpha($FF, *Data\Colors_Header_Back))
-			FillPath()
+			MovePathCursor(*Data\Meas_List_Width, *Data\Meas_Header_Height )
+			AddPathLine(*Data\Meas_Body_Width, 0, #PB_Path_Relative)
+			VectorSourceColor(SetAlpha($FF, 0))
+			StrokePath(1)
 			
 			; Fill the empty bottom of the gadget if needed
 			If LineLoop < *Data\Meas_Line_Visible + 1
@@ -1590,14 +1713,25 @@ Module PureTL
 		
 		For ContentLoop = max(0, *Data\State_HorizontalScroll - 1) To ContentLoopEnd
 			If *Data\Content_DisplayedLines()\Mediablocks(ContentLoop)
+				
+				VectorSourceColor($FFF0F0F0)
+				FillPath(#PB_Path_Preserve)
+				VectorSourceColor($FF000000)
+				StrokePath(1.5)
+		
 				DrawMediaBlock(*Data, YPos, *Data\Content_DisplayedLines()\Mediablocks(ContentLoop))
 				ContentLoop = *Data\Content_DisplayedLines()\Mediablocks(ContentLoop)\LastBlock
 			ElseIf *Data\Meas_Column_Width > #Style_Column_MinimumDisplaySize
 				If *Data\Content_DisplayedLines()\DataPoints(ContentLoop)
-					DrawDataPoint(*Data, 0, YPos)
+					DrawDataPoint(*Data,(ContentLoop - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width + *Data\Meas_List_Width, YPos)
 				EndIf
 			EndIf
 		Next
+		
+		VectorSourceColor($FFF0F0F0)
+		FillPath(#PB_Path_Preserve)
+		VectorSourceColor($FF000000)
+		StrokePath(1.5)
 		
 		; Draw the scroll and resize effect
 		If *Data\State_UserAction = #Action_ItemMove
@@ -1667,7 +1801,6 @@ Module PureTL
 			VectorSourceColor(SetAlpha(*Data\Colors_List_FillBlending(*Data\Content_DisplayedLines()\State),*Data\Colors_List_Front))
 		EndIf
 		FillPath()
-
 		
 		If *Data\Content_DisplayedLines()\Fold
 			If Index = *Data\Draw_WarmToggle
@@ -1745,14 +1878,22 @@ Module PureTL
 		If *Data\Meas_Column_Width > #Style_Column_MinimumDisplaySize
 			For loop = FirstBlock To LastBlock
 				If *Data\Content_DisplayedLines()\DataPoints(loop)
-					
+					DrawDataPoint(*Data,(loop - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width + *Data\Meas_List_Width, YPos)
 				EndIf
 			Next
 		EndIf
 	EndProcedure
 	
 	Procedure DrawDataPoint(*Data.GadgetData, x, y)
-		
+		If *Data\Meas_Column_Width < 10
+			AddPathCircle(x + (*Data\Meas_Column_Width - 2 * #Style_DataPoint_SizeMedium) * 0.5, y + #Style_Line_Height * 0.5, #Style_DataPoint_SizeMedium)
+		Else
+			MovePathCursor(x + (*Data\Meas_Column_Width - 2 * #Style_DataPoint_SizeBig) * 0.5, y - #Style_DataPoint_SizeBig + #Style_Line_Height * 0.5)
+			AddPathLine(- #Style_DataPoint_SizeBig, #Style_DataPoint_SizeBig, #PB_Relative)
+			AddPathLine(#Style_DataPoint_SizeBig, #Style_DataPoint_SizeBig, #PB_Relative)
+			AddPathLine(#Style_DataPoint_SizeBig, - #Style_DataPoint_SizeBig, #PB_Relative)
+			ClosePath()
+		EndIf
 	EndProcedure
 	
 	Procedure AddPathMediaBlock(x, y, Width, Height, Radius)
@@ -1763,7 +1904,7 @@ Module PureTL
 		ClosePath()
 	EndProcedure
 	
-	; Misc
+	; Placement
 	Procedure ScrollVertical(Gadget)
 		Protected *Data.GadgetData = GetGadgetData(Gadget), ScrollbarPosition = GetGadgetState(*Data\Comp_VScrollBar)
 		If Not *Data\State_VerticalScroll = ScrollbarPosition
@@ -1780,7 +1921,31 @@ Module PureTL
 			ProcedureReturn #True
 		EndIf
 	EndProcedure
+
+	Procedure FocusHorizontal(Gadget)
+		Protected *Data.GadgetData = GetGadgetData(Gadget)
+		If *Data\Player_Position < *Data\State_HorizontalScroll Or *Data\Player_Position > *Data\State_HorizontalScroll + *Data\Meas_Column_Visible
+			SetGadgetState(*Data\Comp_HScrollbar, *Data\Player_Position - *Data\Meas_Column_Visible * 0.5)
+			ScrollHorizontal(Gadget)
+		EndIf
+	EndProcedure
 	
+	CompilerIf #Func_LineSelection
+		Procedure FocusVertical(Gadget)
+			Protected *Data.GadgetData = GetGadgetData(Gadget)
+			If *Data\State_SelectedLine < *Data\State_VerticalScroll
+				SetGadgetState(*Data\Comp_VScrollBar, *Data\State_SelectedLine)
+				ProcedureReturn ScrollVertical(Gadget)
+			ElseIf *Data\State_SelectedLine >= *Data\State_VerticalScroll + *Data\Meas_Line_Visible
+				SetGadgetState(*Data\Comp_VScrollBar, *Data\State_SelectedLine - *Data\Meas_Line_Visible + 1)
+				ProcedureReturn ScrollVertical(Gadget)
+			EndIf
+			
+			ProcedureReturn #False
+		EndProcedure
+	CompilerEndIf
+
+	; Misc
 	Procedure Refit(Gadget)
 		Protected *Data.GadgetData = GetGadgetData(Gadget)
 		
@@ -2015,7 +2180,6 @@ Module PureTL
 		If *Data\Content_DisplayedLines()\Fold = #Folded
 			*Data\Content_DisplayedLines()\Fold = #Unfolded
 			Offset = RecurciveUnFold(*Data.GadgetData, *Data\Content_DisplayedLines())
-			
 			If *Data\State_SelectedLine > Index
 				*Data\State_SelectedLine + Offset
 			EndIf
@@ -2023,7 +2187,6 @@ Module PureTL
 		Else
 			*Data\Content_DisplayedLines()\Fold = #Folded
 			Offset = RecurciveFold(*Data.GadgetData, *Data\Content_DisplayedLines())
-			
 			If *Data\State_SelectedLine > Index + Offset
 				*Data\State_SelectedLine - Offset
 			ElseIf *Data\State_SelectedLine > Index
@@ -2095,7 +2258,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1495
-; FirstLine = 398
-; Folding = 8X8vAEjEBAAuAA+
+; CursorPosition = 1525
+; FirstLine = 330
+; Folding = 8X8WBICBQAWdABQA9
 ; EnableXP
