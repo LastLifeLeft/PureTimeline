@@ -6,6 +6,10 @@ CompilerIf Not Defined(CanvasButton, #PB_Module)
 	IncludeFile "CanvasButton\CanvasButton.pbi"
 CompilerEndIf
 
+CompilerIf Not Defined(ScrollBar, #PB_Module)
+	IncludeFile "MaterialScrollBar\ScrollBar.pbi"
+CompilerEndIf
+
 CompilerIf Not Defined(SortLinkedList, #PB_Module) ; Couldn't figure out a nice way to sort the selected lists with the built in structured list sort, so I'll use this one : https://www.purebasic.fr/english/viewtopic.php?f=12&t=72352 
 	DeclareModule SortLinkedList
 		
@@ -448,6 +452,8 @@ Module PureTL
 	#Style_MediaBlock_IconSize = #Style_Line_Height - 2 * #Style_MediaBlock_IconYOffset
 	#Style_MediaBlock_IconMinimumWidth = #Style_MediaBlock_IconSize + #Style_MediaBlock_IconXOffset + 10
 	
+	#Style_ScrollbarThickness = 12
+	
 	; Colors
 	#Color_ListBack		= $2F3136
 	#Color_ListFront 	= $FFFFFF
@@ -566,9 +572,7 @@ Module PureTL
 		Meas_Header_Height.i
 		Meas_Line_Visible.i
 		Meas_Line_Total.i
-		Meas_VScrollBar_Width.i
 		Meas_VScrollBar_Visible.b
-		Meas_HScrollbar_Height.i
 		Meas_HScrollBar_Visible.b
 		Meas_Column_Width.i
 		Meas_Column_Visible.i
@@ -729,18 +733,25 @@ Module PureTL
 				\Content_Duration = #Misc_DefaultDuration + #Style_Body_ColumnMargin * 2
 				
 				; Components
-				\Comp_VScrollBar = ScrollBarGadget(#PB_Any, 0, \Meas_Header_Height, 10, 10, 0, 10, 10, #PB_ScrollBar_Vertical)
-				\Meas_VScrollBar_Width = GadgetWidth(\Comp_VScrollBar, #PB_Gadget_RequiredSize)
-				ResizeGadget(\Comp_VScrollBar, #PB_Ignore, #PB_Ignore, \Meas_VScrollBar_Width, #PB_Ignore)
+				\Comp_VScrollBar = ScrollBar::Gadget(#PB_Any, 0, \Meas_Header_Height, #Style_ScrollbarThickness, 10, 0, 10, 10, #PB_ScrollBar_Vertical)
 				HideGadget(\Comp_VScrollBar, #True)
-				BindGadgetEvent(\Comp_VScrollBar, @HandlerVScrollbar())
+				BindGadgetEvent(\Comp_VScrollBar, @HandlerVScrollbar(), #PB_EventType_Change)
 				SetGadgetData(\Comp_VScrollBar, Gadget)
+				SetGadgetColor(\Comp_VScrollBar, #PB_Gadget_BackColor, SetAlpha($FF, FixColor(#Color_BodyBack)))
+				SetGadgetColor(\Comp_VScrollBar, #PB_Gadget_LineColor, SetAlpha($FF, FixColor(#Color_BodyBack)))
+				SetGadgetColor(\Comp_VScrollBar, #PB_Gadget_FrontColor, $FF97928E)
+				SetGadgetColor(\Comp_VScrollBar, ScrollBar::#Color_FrontWarm, $FFDEDDDC)
+				SetGadgetColor(\Comp_VScrollBar, ScrollBar::#Color_FrontHot, $FFFFFFFF)
 				
-				\Comp_HScrollbar = ScrollBarGadget(#PB_Any, 0, 0, 10, 10, 0, \Content_Duration - 1, 10)
-				\Meas_HScrollbar_Height = GadgetHeight(\Comp_HScrollbar, #PB_Gadget_RequiredSize)
+				\Comp_HScrollbar = ScrollBar::Gadget(#PB_Any, 0, 0, 10, #Style_ScrollbarThickness, 0, \Content_Duration - 1, 10)
 				HideGadget(\Comp_HScrollbar, #True)
-				BindGadgetEvent(\Comp_HScrollBar, @HandlerHScrollbar())
+				BindGadgetEvent(\Comp_HScrollBar, @HandlerHScrollbar(), #PB_EventType_Change)
 				SetGadgetData(\Comp_HScrollBar, Gadget)
+				SetGadgetColor(\Comp_HScrollbar, #PB_Gadget_BackColor, SetAlpha($FF, FixColor(#Color_BodyBack)))
+				SetGadgetColor(\Comp_HScrollbar, #PB_Gadget_LineColor, SetAlpha($FF, FixColor(#Color_BodyBack)))
+				SetGadgetColor(\Comp_HScrollbar, #PB_Gadget_FrontColor, $FF97928E)
+				SetGadgetColor(\Comp_HScrollbar, ScrollBar::#Color_FrontWarm, $FFDEDDDC)
+				SetGadgetColor(\Comp_HScrollbar, ScrollBar::#Color_FrontHot, $FFFFFFFF)
 				
 				\Comp_ButtonContainer = ContainerGadget(#PB_Any, 0, 0, #Style_List_Width, #Style_Header_Height, #PB_Container_BorderLess)
 				SetGadgetColor(\Comp_ButtonContainer, #PB_Gadget_BackColor, \Colors_Header_Back)
@@ -780,7 +791,7 @@ Module PureTL
 				SetGadgetColor(\Comp_LitSplitter, #PB_Gadget_BackColor, $000000)
 				CloseGadgetList()
 				
-				\Comp_CornerCover = ContainerGadget(#PB_Any, \Meas_List_Width - 1, \Meas_Header_Height, \Meas_VScrollBar_Width, \Meas_HScrollbar_Height, #PB_Container_BorderLess)
+				\Comp_CornerCover = ContainerGadget(#PB_Any, \Meas_List_Width - 1, \Meas_Header_Height, #Style_ScrollbarThickness, #Style_ScrollbarThickness, #PB_Container_BorderLess)
 				SetGadgetColor(\Comp_CornerCover, #PB_Gadget_BackColor, \Colors_Body_Back)
 				HideGadget(\Comp_CornerCover, #True)
 				
@@ -788,10 +799,14 @@ Module PureTL
 				
 				\Comp_Canvas = Gadget
 				
+				CloseGadgetList()
+				
 				CompilerIf #Func_AutoDragScroll
+					Protected CurrentBuildList = UseGadgetList(0)
 					\Comp_TimerWindow = OpenWindow(#PB_Any, 0, 0, 100, 100, "", #PB_Window_Invisible)
 					BindEvent(#PB_Event_Timer, @HandlerTimerWindow(), \Comp_TimerWindow)
 					SetWindowData(\Comp_TimerWindow, *Data)
+					UseGadgetList(CurrentBuildList)
 				CompilerEndIf
 				
 				; Player
@@ -810,7 +825,7 @@ Module PureTL
 	Procedure Resize(Gadget, X, Y, Width, Height)
 		Protected *Data.GadgetData = GetGadgetData(Gadget)
 		ResizeGadget(Gadget, X, Y, Width, Height)
-		ResizeGadget(*Data\Comp_LitSplitter, #PB_Ignore, #PB_Ignore, #PB_Ignore, Height - *Data\Meas_Header_Height)
+		ResizeGadget(*Data\Comp_LitSplitter, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(Gadget) - *Data\Meas_Header_Height)
 		Refit(Gadget)
 		Redraw(Gadget)
 	EndProcedure
@@ -1426,17 +1441,12 @@ Module PureTL
 				;}
 			Case #PB_EventType_MouseWheel;{
 				If (GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control)
-					If GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta) = 1
-						If *Data\Meas_Column_Width < #Style_Body_MaximumColumnWidth
-							*Data\Meas_Column_Width + 1
-						EndIf
-					Else
-						If *Data\Meas_Column_Width > 1
-							*Data\Meas_Column_Width - 1
+					If *Data\Meas_Column_Width < #Style_Body_MaximumColumnWidth
+						SetGadgetState(*Data\Comp_VScrollBar, *Data\Meas_Column_Width + GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
+						If ScrollVertical(*Data\Comp_Canvas)
+							Redraw(*Data\Comp_Canvas)
 						EndIf
 					EndIf
-					Refit(Gadget)
-					Redraw(Gadget)
 				Else
 					SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
 					If ScrollVertical(Gadget)
@@ -1652,7 +1662,7 @@ Module PureTL
 			LineLoopEnd = min(*Data\Meas_Line_Visible, *Data\Meas_Line_Total - *Data\State_VerticalScroll)
 			
 			; Header
-			AddPathBox(*Data\Meas_List_Width,0 , *Data\Meas_Body_Width + *Data\Meas_VScrollBar_Width, *Data\Meas_Header_Height)
+			AddPathBox(*Data\Meas_List_Width,0 , *Data\Meas_Body_Width + *Data\Meas_Body_Width, *Data\Meas_Header_Height)
 			VectorSourceColor(SetAlpha($FF, *Data\Colors_Header_Back))
 			FillPath()
 			MovePathCursor(*Data\Meas_List_Width, *Data\Meas_Header_Height )
@@ -1660,14 +1670,10 @@ Module PureTL
 			VectorSourceColor(SetAlpha($FF, 0))
 			StrokePath(1)
 			
-			; Fill the empty bottom of the gadget if needed
+			; Fill the empty bottom of the gadget body if needed
 			If LineLoop < *Data\Meas_Line_Visible + 1
 				YPos = *Data\Meas_Header_Height + LineLoop * #Style_Line_Height
 				Height = *Data\Meas_Gadget_Height - YPos
-				AddPathBox(0, YPos , *Data\Meas_List_Width, Height)
-				VectorSourceColor(SetAlpha($FF, *Data\Colors_List_Back))
-				FillPath()
-				
 				AddPathBox(*Data\Meas_List_Width, YPos , *Data\Meas_Body_Width, Height)
 				VectorSourceColor(SetAlpha($FF, *Data\Colors_Body_Back))
 				FillPath()
@@ -1685,6 +1691,13 @@ Module PureTL
 				MovePathCursor(#Style_Player_TopOffset - 0.5, #Style_Player_TopHeight, #PB_Path_Relative)
 				AddPathBox(0,0, #Style_Player_Width, VectorOutputHeight(), #PB_Path_Relative)
 				VectorSourceColor(SetAlpha($FF, FixColor(#Color_Player)))
+				FillPath()
+			EndIf
+			
+			; Fill the empty bottom of the gadget item list if needed
+			If LineLoop < *Data\Meas_Line_Visible + 1
+				AddPathBox(0, YPos , *Data\Meas_List_Width, Height)
+				VectorSourceColor(SetAlpha($FF, *Data\Colors_List_Back))
 				FillPath()
 			EndIf
 			
@@ -1974,7 +1987,7 @@ Module PureTL
 			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_Maximum, *Data\Meas_Line_Total)
 			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_PageLength, *Data\Meas_Line_Visible)
 			*Data\Meas_VScrollBar_Visible = #True
-			*Data\Meas_Body_Width - *Data\Meas_VScrollBar_Width
+			*Data\Meas_Body_Width - #Style_Player_Width
 			ScrollVertical(Gadget)
 		Else
 			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_Maximum, 1)
@@ -1997,21 +2010,21 @@ Module PureTL
 		EndIf
 		
 		If *Data\Meas_VScrollBar_Visible
-			ResizeGadget(*Data\Comp_VScrollBar, *Data\Meas_Gadget_Width - *Data\Meas_VScrollBar_Width, #PB_Ignore, #PB_Ignore, *Data\Meas_Content_Height - *Data\Meas_HScrollBar_Visible * *Data\Meas_HScrollbar_Height)
+			ResizeGadget(*Data\Comp_VScrollBar, *Data\Meas_Gadget_Width - #Style_ScrollbarThickness, #PB_Ignore, #PB_Ignore, *Data\Meas_Content_Height - *Data\Meas_HScrollBar_Visible * #Style_ScrollbarThickness)
 			HideGadget(*Data\Comp_VScrollBar, #False)
 		Else
 			HideGadget(*Data\Comp_VScrollBar, #True)
 		EndIf
 		
 		If *Data\Meas_HScrollBar_Visible
-			ResizeGadget(*Data\Comp_HScrollBar, *Data\Meas_List_Width, *Data\Meas_Gadget_Height - *Data\Meas_HScrollbar_Height, *Data\Meas_Body_Width, *Data\Meas_HScrollbar_Height)
+			ResizeGadget(*Data\Comp_HScrollBar, *Data\Meas_List_Width, *Data\Meas_Gadget_Height - #Style_ScrollbarThickness, *Data\Meas_Body_Width - *Data\Meas_VScrollBar_Visible * #Style_ScrollbarThickness, #Style_ScrollbarThickness)
 			HideGadget(*Data\Comp_HScrollBar, #False)
 		Else
 			HideGadget(*Data\Comp_HScrollBar, #True)
 		EndIf
 		
 		If *Data\Meas_HScrollBar_Visible And *Data\Meas_VScrollBar_Visible
-			ResizeGadget(*Data\Comp_CornerCover, *Data\Meas_Gadget_Width - *Data\Meas_VScrollBar_Width, *Data\Meas_Gadget_Height - *Data\Meas_HScrollbar_Height, #PB_Ignore, #PB_Ignore)
+			ResizeGadget(*Data\Comp_CornerCover, *Data\Meas_Gadget_Width - #Style_ScrollbarThickness, *Data\Meas_Gadget_Height - #Style_ScrollbarThickness, #PB_Ignore, #PB_Ignore)
 			HideGadget(*Data\Comp_CornerCover, #False)
 		Else
 			HideGadget(*Data\Comp_CornerCover, #True)
@@ -2159,6 +2172,9 @@ Module PureTL
 				Result + RecurciveFold(*Data.GadgetData, *Line\Content_Lines())
 			EndIf
 			
+			If *Data\Content_DisplayedLines()\State = #State_Hot
+				*Data\Content_DisplayedLines()\State = #State_Cold
+			EndIf
 			DeleteElement(*Data\Content_DisplayedLines())
 			*Line\Content_Lines()\DisplayListAdress = 0
 			Result + 1
@@ -2205,8 +2221,6 @@ Module PureTL
 			If *Data\State_SelectedLine > Index + Offset
 				*Data\State_SelectedLine - Offset
 			ElseIf *Data\State_SelectedLine > Index
-				SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
-				*Data\Content_DisplayedLines()\State = #State_Cold
 				*Data\State_SelectedLine = -1
 			EndIf
 			
@@ -2273,7 +2287,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 436
-; FirstLine = 61
-; Folding = 8X8WBIuAgAEFApgA5
+; CursorPosition = 455
+; FirstLine = 78
+; Folding = AwAhBQAAAAAAAAAAw
 ; EnableXP
