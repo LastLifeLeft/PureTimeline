@@ -1245,7 +1245,7 @@ Module PureTL
 				If *Data\State_UserAction= #Action_Hover
 					If MouseY < *Data\Meas_Header_Height ;{
 						If Not *Data\Player_Hover
-							Column = Round((MouseX - *Data\Meas_List_Width) / *Data\Meas_Column_Width, #PB_Round_Nearest) + *data\State_HorizontalScroll
+							Column = Min(Max(#Style_Body_ColumnMargin, Round((MouseX - *Data\Meas_List_Width) / *Data\Meas_Column_Width, #PB_Round_Nearest) + *data\State_HorizontalScroll), *Data\Content_Duration - #Style_Body_ColumnMargin)
 							If Column <> *Data\State_PlayerPosition
 								*Data\State_PlayerPosition = Column
 								*Data\PlayerX = (*Data\State_PlayerPosition - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width + *Data\Meas_List_Width - #Style_Player_TopOffset - 0.5
@@ -2287,7 +2287,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 455
-; FirstLine = 78
-; Folding = AwAhBQAAAAAAAAAAw
+; CursorPosition = 356
+; Folding = AwAAAAAAYAAAAAAAw
 ; EnableXP
