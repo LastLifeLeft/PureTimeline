@@ -406,6 +406,7 @@ Module PureTL
 		#Action_ItemMove
 		#Action_ItemMoveInit
 		#Action_PlayerMove
+		#Action_RenameLayer
 	EndEnumeration
 	
 	; Functionality
@@ -415,7 +416,8 @@ Module PureTL
 	; Style
 	#Style_Header_Height = 60
 	#Style_Header_ButtonSize = 30
-	#Style_Header_ButtonSpace = 20
+	#Style_Header_Space = 10
+	#Style_Header_Margin = 6
 	
 	#Style_Player_Width = 2
 	#Style_Player_TopHeight = 24
@@ -435,7 +437,10 @@ Module PureTL
 	#Style_List_FoldOffset = (#Style_Line_Height - #Style_List_FoldSize) / 2 + 2 ; +2 to get the right alignment with the text...
 	#Style_List_FoldIconOffset =#Style_List_FoldSize + #Style_List_FoldMargin
 	
-	#Style_Body_DefaultColumnWidth = 12
+	#Style_List_Edit_StringHeight = 30
+	#Style_List_Edit_HMargin = 10
+	
+	#Style_Body_DefaultColumnWidth = 6
 	#Style_Body_MaximumColumnWidth = 17
 	#Style_Body_MinimumColumnWidth = 1
 	#Style_Column_MinimumDisplaySize = 6
@@ -542,11 +547,16 @@ Module PureTL
 		; Components
 		Comp_VScrollBar.i
 		Comp_HScrollbar.i
-		Comp_PlayButton.i
-		Comp_StartButton.i
-		Comp_EndButton.i
-		Comp_ButtonContainer.i
+		
+		comp_NewLayer.i
+		Comp_NewFolder.i
+		comp_DeleteLayer.i
+		comp_EditLayer.i
+		comp_MoveUp.i
 		Comp_LitSplitter.i
+		comp_MoveDown.i
+		
+		Comp_ButtonContainer.i
 		Comp_CornerCover.i
 		Comp_Canvas.i
 		CompilerIf #Func_AutoDragScroll
@@ -624,6 +634,7 @@ Module PureTL
 	EndStructure
 	
 	Global DefaultFont = LoadFont(#PB_Any, "Bebas Neue", #Style_List_FontSize, #PB_Font_HighQuality)
+	Global DefaultFontEdit = LoadFont(#PB_Any, "Bebas Neue", 18, #PB_Font_HighQuality)
 	
 	Global Dim DefaultColors(#Color_Content_Count - 1)
 	DefaultColors(0) = FixColor(#Color_Content_00)
@@ -643,10 +654,16 @@ Module PureTL
 	Declare HandlerCanvas()
 	Declare HandlerHScrollbar()
 	Declare HandlerVScrollbar()
-	Declare HandlerPlayButton(Button)
-	Declare HandlerStartButton(Button)
-	Declare HandlerEndButton(Button)
-	Declare HandlerTimerWindow()
+	Declare HandlerAddLayer(Button)
+	Declare HandlerNewFolder(Button)
+	Declare HandlerDeleteLayer(Button)
+	Declare HandlerEditLayer(Button)
+	Declare HandlerMoveDown(Button)
+	Declare HandlerMoveUp(Button)
+	Declare HandlerRenameString(hWnd, uMsg, wParam, lParam)
+	CompilerIf #Func_AutoDragScroll
+		Declare HandlerTimerWindow()
+	CompilerEndIf
 	
 	; Drawing
 	Declare Redraw(Gadget)
@@ -673,6 +690,7 @@ Module PureTL
 	Declare ToggleFold(Gadget, Item)
 	Declare CompareAscending(*a.MBAdress, *b.MBAdress)
 	Declare CompareDescending(*a.MBAdress, *b.MBAdress)
+	Declare RebuildDisplayList(Gadget)
 	
 	Prototype Proto_SortMediaBlocks(List LinkedList.MediaBlock(), *Compare, First=0, Last=-1)
 	Global SortMediaBlocks.Proto_SortMediaBlocks = SortLinkedList::@_SortLinkedList_()
@@ -753,38 +771,63 @@ Module PureTL
 				SetGadgetColor(\Comp_HScrollbar, ScrollBar::#Color_FrontWarm, $FFDEDDDC)
 				SetGadgetColor(\Comp_HScrollbar, ScrollBar::#Color_FrontHot, $FFFFFFFF)
 				
-				\Comp_ButtonContainer = ContainerGadget(#PB_Any, 0, 0, #Style_List_Width, #Style_Header_Height, #PB_Container_BorderLess)
+				\Comp_ButtonContainer = ContainerGadget(#PB_Any, 0, 0, #Style_List_Width, #Style_Header_Height - 1, #PB_Container_BorderLess)
 				SetGadgetColor(\Comp_ButtonContainer, #PB_Gadget_BackColor, \Colors_Header_Back)
 				
-				\Comp_StartButton = CanvasButton::GadgetImage(#PB_Any,
-				                                              (#Style_List_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5,
-				                                              (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
-				                                              #Style_Header_ButtonSize, MaterialVector::#Skip,
-				                                              CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme | MaterialVector::#style_rotate_180)
-				CanvasButton::SetColor(\Comp_StartButton, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
-				CanvasButton::SetColor(\Comp_StartButton, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
-				CanvasButton::SetData(\Comp_StartButton, Gadget)
-				CanvasButton::BindEventHandler(\Comp_StartButton, @HandlerStartButton())
+				\Comp_NewFolder = CanvasButton::GadgetImage(#PB_Any, #Style_Header_Margin,
+				                                            (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
+				                                            #Style_Header_ButtonSize, MaterialVector::#Folder,
+				                                            CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme)
+				CanvasButton::SetColor(\Comp_NewFolder, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetColor(\Comp_NewFolder, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetData(\Comp_NewFolder, Gadget)
+				CanvasButton::BindEventHandler(\Comp_NewFolder, @HandlerNewFolder())
 				
-				\Comp_PlayButton = CanvasButton::GadgetImage(#PB_Any,
-				                                              (#Style_List_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5 + #Style_Header_ButtonSize + #Style_Header_ButtonSpace,
-				                                              (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
-				                                              #Style_Header_ButtonSize, MaterialVector::#Play,
-				                                              CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme)
-				CanvasButton::SetColor(\Comp_PlayButton, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
-				CanvasButton::SetColor(\Comp_PlayButton, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
-				CanvasButton::SetData(\Comp_PlayButton, Gadget)
-				CanvasButton::BindEventHandler(\Comp_PlayButton, @HandlerPlayButton())
+				\comp_NewLayer = CanvasButton::GadgetImage(#PB_Any, #Style_Header_Margin + (#Style_Header_Space +#Style_Header_ButtonSize), (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5,
+				                                           #Style_Header_ButtonSize, #Style_Header_ButtonSize, MaterialVector::#Plus,
+				                                           CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme | MaterialVector::#style_rotate_180)
+				CanvasButton::SetColor(\comp_NewLayer, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetColor(\comp_NewLayer, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetData(\comp_NewLayer, Gadget)
+				CanvasButton::BindEventHandler(\comp_NewLayer, @HandlerAddLayer())
 				
-				\Comp_EndButton = CanvasButton::GadgetImage(#PB_Any,
-				                                              (#Style_List_Width - 3 * #Style_Header_ButtonSize - 2 * #Style_Header_ButtonSpace) * 0.5 + #Style_Header_ButtonSize * 2 + #Style_Header_ButtonSpace * 2,
+				\comp_DeleteLayer = CanvasButton::GadgetImage(#PB_Any, #Style_Header_Margin + (#Style_Header_Space +#Style_Header_ButtonSize)* 2,
 				                                              (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
-				                                              #Style_Header_ButtonSize, MaterialVector::#Skip,
+				                                              #Style_Header_ButtonSize, MaterialVector::#Minus,
 				                                              CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme)
-				CanvasButton::SetColor(\Comp_EndButton, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
-				CanvasButton::SetColor(\Comp_EndButton, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
-				CanvasButton::SetData(\Comp_EndButton, Gadget)
-				CanvasButton::BindEventHandler(\Comp_EndButton, @HandlerEndButton())
+				CanvasButton::SetColor(\comp_DeleteLayer, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetColor(\comp_DeleteLayer, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetData(\comp_DeleteLayer, Gadget)
+				CanvasButton::BindEventHandler(\comp_DeleteLayer, @HandlerDeleteLayer())
+				
+				\comp_EditLayer = CanvasButton::GadgetImage(#PB_Any, #Style_Header_Margin + (#Style_Header_Space +#Style_Header_ButtonSize) * 3,
+				                                            (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
+				                                            #Style_Header_ButtonSize, MaterialVector::#Pen,
+				                                            CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme)
+				CanvasButton::SetColor(\comp_EditLayer, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetColor(\comp_EditLayer, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetData(\comp_EditLayer, Gadget)
+				CanvasButton::BindEventHandler(\comp_EditLayer, @HandlerEditLayer())
+				
+				\comp_MoveDown = CanvasButton::GadgetImage(#PB_Any, #Style_Header_Margin + (#Style_Header_Space +#Style_Header_ButtonSize) * 4,
+				                                            (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
+				                                            #Style_Header_ButtonSize, MaterialVector::#Chevron,
+				                                            CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme | MaterialVector::#style_rotate_180)
+				CanvasButton::SetColor(\comp_MoveDown, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetColor(\comp_MoveDown, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetData(\comp_MoveDown, Gadget)
+				CanvasButton::BindEventHandler(\comp_MoveDown, @HandlerMoveDown())
+				
+				\comp_MoveUp = CanvasButton::GadgetImage(#PB_Any, #Style_Header_Margin + (#Style_Header_Space +#Style_Header_ButtonSize) * 5,
+				                                            (#Style_Header_Height - #Style_Header_ButtonSize) * 0.5, #Style_Header_ButtonSize, 
+				                                            #Style_Header_ButtonSize, MaterialVector::#Chevron,
+				                                            CanvasButton::#MaterialVectorIcon | CanvasButton::#DarkTheme)
+				CanvasButton::SetColor(\comp_MoveUp, CanvasButton::#ColorType_BackWarm, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetColor(\comp_MoveUp, CanvasButton::#ColorType_BackHot, SetAlpha($FF, \Colors_Body_Back))
+				CanvasButton::SetData(\comp_MoveUp, Gadget)
+				CanvasButton::BindEventHandler(\comp_MoveUp, @HandlerMoveUp())
+				
+				
 				CloseGadgetList()
 				
 				\Comp_LitSplitter = ContainerGadget(#PB_Any, \Meas_List_Width - 1, \Meas_Header_Height, 1, Height - \Meas_Header_Height, #PB_Container_BorderLess)
@@ -974,6 +1017,27 @@ Module PureTL
 	
 	Procedure ResizeMediaBlock(Gadget, MediablockID, Start, Finish)
 		
+	EndProcedure
+	
+	Procedure GetSelectedLine(Gadget)
+		Protected *Data.GadgetData = GetGadgetData(Gadget)
+		ProcedureReturn *Data\State_SelectedLine
+	EndProcedure
+	
+	Procedure SetSelectedLine(Gadget, State)
+		Protected *Data.GadgetData = GetGadgetData(Gadget)
+		
+		If *Data\State_SelectedLine > -1
+			SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+			*Data\Content_DisplayedLines()\State = #False
+		EndIf
+		
+		*Data\State_SelectedLine = State
+		
+		SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+		*Data\Content_DisplayedLines()\State = #True
+		
+		Redraw(Gadget)
 	EndProcedure
 	;}
 	
@@ -1440,17 +1504,24 @@ Module PureTL
 				EndSelect
 				;}
 			Case #PB_EventType_MouseWheel;{
-				If (GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control)
-					If *Data\Meas_Column_Width < #Style_Body_MaximumColumnWidth
-						SetGadgetState(*Data\Comp_VScrollBar, *Data\Meas_Column_Width + GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
-						If ScrollVertical(*Data\Comp_Canvas)
-							Redraw(*Data\Comp_Canvas)
+				If *Data\State_UserAction = #Action_Hover
+					If (GetGadgetAttribute(Gadget, #PB_Canvas_Modifiers) & #PB_Canvas_Control)
+						If GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta) = 1
+							If *Data\Meas_Column_Width < #Style_Body_MaximumColumnWidth
+								*Data\Meas_Column_Width + 1
+							EndIf
+						Else
+							If *Data\Meas_Column_Width > 1
+								*Data\Meas_Column_Width - 1
+							EndIf
 						EndIf
-					EndIf
-				Else
-					SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
-					If ScrollVertical(Gadget)
+						Refit(Gadget)
 						Redraw(Gadget)
+					Else
+						SetGadgetState(*Data\Comp_VScrollBar, GetGadgetState(*Data\Comp_VScrollBar) - GetGadgetAttribute(Gadget, #PB_Canvas_WheelDelta))
+						If ScrollVertical(Gadget)
+							Redraw(Gadget)
+						EndIf
 					EndIf
 				EndIf
 				;}
@@ -1582,16 +1653,185 @@ Module PureTL
 		EndIf
 	EndProcedure
 	
-	Procedure HandlerPlayButton(Button)
+	Procedure HandlerAddLayer(Button)
 		
 	EndProcedure
 	
-	Procedure HandlerStartButton(Button)
+	Procedure HandlerNewFolder(Button)
+		Protected Gadget = CanvasButton::GetData(Button), Line = GetSelectedLine(Gadget) + 1, *Data.GadgetData = GetGadgetData(Gadget)
+		AddLine(Gadget, Line, "New Folder")
+		SetSelectedLine(Gadget, Line)
+		
+		HandlerEditLayer(*Data\comp_EditLayer)
 		
 	EndProcedure
 	
-	Procedure HandlerEndButton(Button)
+	Procedure HandlerDeleteLayer(Button)
 		
+	EndProcedure
+	
+	Procedure HandlerEditLayer(Button)
+		Protected Gadget = CanvasButton::GetData(Button), *Data.GadgetData = GetGadgetData(Gadget)
+		Protected StringGadget, OldProc
+		
+		If *Data\State_SelectedLine > -1
+			If FocusVertical(Gadget)
+				Redraw(Gadget)
+			EndIf
+			
+			OpenGadgetList(Gadget)
+			SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+			
+			If *Data\Content_DisplayedLines()\Fold
+				StringGadget = StringGadget(#PB_Any, *Data\Content_DisplayedLines()\HOffset - 8 + #Style_List_FoldIconOffset,
+				                          *Data\Meas_Header_Height + ( *Data\State_SelectedLine - *Data\State_VerticalScroll ) * #Style_Line_Height + #Style_List_TextVOffset - 3,
+				                          *Data\Meas_List_Width - *Data\Content_DisplayedLines()\HOffset - #Style_List_Edit_HMargin - #Style_List_FoldIconOffset, #Style_List_Edit_StringHeight,
+				                          *Data\Content_DisplayedLines()\Text)
+			Else
+				StringGadget = StringGadget(#PB_Any, *Data\Content_DisplayedLines()\HOffset - 8,
+				                          *Data\Meas_Header_Height + ( *Data\State_SelectedLine - *Data\State_VerticalScroll ) * #Style_Line_Height + #Style_List_TextVOffset - 3,
+				                          *Data\Meas_List_Width - *Data\Content_DisplayedLines()\HOffset - #Style_List_Edit_HMargin, #Style_List_Edit_StringHeight,
+				                          *Data\Content_DisplayedLines()\Text)
+			EndIf
+			
+			*Data\State_UserAction = #Action_RenameLayer
+			
+			SendMessage_(GadgetID(StringGadget), #EM_SETSEL, 0, Len(*Data\Content_DisplayedLines()\Text))
+			SetGadgetFont(StringGadget, FontID(DefaultFontEdit))
+			SetGadgetColor(StringGadget, #PB_Gadget_BackColor, $433E3C)
+			SetGadgetColor(StringGadget, #PB_Gadget_LineColor, $433E3C)
+			SetGadgetColor(StringGadget, #PB_Gadget_FrontColor, $FFFFFF)
+			SetGadgetData(StringGadget, *Data)
+			SetProp_(GadgetID(StringGadget), "oldproc", SetWindowLongPtr_(GadgetID(StringGadget), #GWL_WNDPROC, @HandlerRenameString()))
+			SetActiveGadget(StringGadget)
+			
+ 			SetProp_(GadgetID(StringGadget), "gadget", StringGadget)
+			
+			CloseGadgetList()
+		EndIf
+	EndProcedure
+	
+	Procedure HandlerMoveDown(Button)
+		Protected Gadget = CanvasButton::GetData(Button), *Data.GadgetData = GetGadgetData(Gadget)
+		Protected *Line1DisplayElement, *Line2DisplayElement, Unfolded = #False
+		
+		If *Data\State_SelectedLine > -1
+			SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+			If *Data\Content_DisplayedLines()\Fold =#Unfolded
+				Unfolded = #True
+			EndIf
+			
+			If *Data\Content_DisplayedLines()\Parent
+				ChangeCurrentElement(*Data\Content_DisplayedLines()\Parent\Content_Lines(), *Data\Content_DisplayedLines()\ParentListAdress)
+				
+				If NextElement(*Data\Content_DisplayedLines()\Parent\Content_Lines())
+					If *Data\Content_Lines()\Fold = #Unfolded
+						Unfolded = #True
+					Else
+						*Line2DisplayElement = *Data\Content_DisplayedLines()\Parent\Content_Lines()\DisplayListAdress
+					EndIf
+					SwapElements(*Data\Content_DisplayedLines()\Parent\Content_Lines(), *Data\Content_DisplayedLines()\ParentListAdress,  @*Data\Content_DisplayedLines()\Parent\Content_Lines())
+				EndIf
+			Else
+				ChangeCurrentElement(*Data\Content_Lines(), *Data\Content_DisplayedLines()\ParentListAdress)
+				If NextElement(*Data\Content_Lines())
+ 					If *Data\Content_Lines()\Fold = #Unfolded
+						Unfolded = #True
+					Else
+						*Line2DisplayElement = *Data\Content_Lines()\DisplayListAdress
+					EndIf
+					SwapElements(*Data\Content_Lines(), *Data\Content_DisplayedLines()\ParentListAdress, @*Data\Content_Lines())
+				EndIf
+			EndIf
+			
+			If Unfolded
+				ClearList(*Data\Content_DisplayedLines())
+				RebuildDisplayList(Gadget)
+				FocusVertical(Gadget)
+				Redraw(Gadget)
+			ElseIf *Line2DisplayElement
+				SwapElements(*Data\Content_DisplayedLines(), @*Data\Content_DisplayedLines(), *Line2DisplayElement)
+				*Data\State_SelectedLine + 1
+				FocusVertical(Gadget)
+				Redraw(Gadget)
+			EndIf
+		EndIf
+	EndProcedure
+	
+	Procedure HandlerMoveUp(Button)
+		Protected Gadget = CanvasButton::GetData(Button), *Data.GadgetData = GetGadgetData(Gadget)
+		Protected *Line1DisplayElement, *Line2DisplayElement, Unfolded = #False
+		
+		If *Data\State_SelectedLine > -1
+			SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+			If *Data\Content_DisplayedLines()\Fold =#Unfolded
+				Unfolded = #True
+			EndIf
+			
+			If *Data\Content_DisplayedLines()\Parent
+				ChangeCurrentElement(*Data\Content_DisplayedLines()\Parent\Content_Lines(), *Data\Content_DisplayedLines()\ParentListAdress)
+				
+				If PreviousElement(*Data\Content_DisplayedLines()\Parent\Content_Lines())
+					If *Data\Content_Lines()\Fold = #Unfolded
+						Unfolded = #True
+					Else
+						*Line2DisplayElement = *Data\Content_DisplayedLines()\Parent\Content_Lines()\DisplayListAdress
+					EndIf
+					SwapElements(*Data\Content_DisplayedLines()\Parent\Content_Lines(), *Data\Content_DisplayedLines()\ParentListAdress,  @*Data\Content_DisplayedLines()\Parent\Content_Lines())
+				EndIf
+			Else
+				ChangeCurrentElement(*Data\Content_Lines(), *Data\Content_DisplayedLines()\ParentListAdress)
+				
+				If PreviousElement(*Data\Content_Lines())
+					If *Data\Content_Lines()\Fold = #Unfolded
+						Unfolded = #True
+					Else
+						*Line2DisplayElement = *Data\Content_Lines()\DisplayListAdress
+					EndIf
+					SwapElements(*Data\Content_Lines(), *Data\Content_DisplayedLines()\ParentListAdress, @*Data\Content_Lines())
+				EndIf
+			EndIf
+			
+			If Unfolded
+				ClearList(*Data\Content_DisplayedLines())
+				RebuildDisplayList(Gadget)
+				FocusVertical(Gadget)
+				Redraw(Gadget)
+			ElseIf *Line2DisplayElement
+				SwapElements(*Data\Content_DisplayedLines(), @*Data\Content_DisplayedLines(), *Line2DisplayElement)
+				*Data\State_SelectedLine - 1
+				FocusVertical(Gadget)
+				Redraw(Gadget)
+			EndIf
+		EndIf
+	EndProcedure
+	
+	Procedure HandlerRenameString(hWnd, uMsg, wParam, lParam)
+		Protected oldproc = GetProp_(hWnd, "oldproc"), Gadget, *Data.GadgetData
+		
+		Select uMsg
+			Case #WM_NCDESTROY
+				RemoveProp_(hWnd, "oldproc")
+			Case #WM_KEYDOWN
+				Gadget = GetProp_(hWnd, "gadget")
+				If wParam = #VK_RETURN And GetGadgetText(Gadget) <> ""
+					Gadget = GetProp_(hWnd, "gadget")
+					*Data.GadgetData = GetGadgetData(Gadget)
+					SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
+					*Data\Content_DisplayedLines()\Text = GetGadgetText(Gadget)
+					SetActiveGadget(*Data\Comp_Canvas)
+					Redraw(*Data\Comp_Canvas)
+				EndIf
+			Case #WM_KILLFOCUS
+				Gadget = GetProp_(hWnd, "gadget")
+				*Data.GadgetData = GetGadgetData(Gadget)
+				*Data\State_UserAction = #Action_Hover
+				RemoveProp_(hWnd, "oldproc")
+				RemoveProp_(hWnd, "gadget")
+				FreeGadget(Gadget)
+		EndSelect
+		
+		ProcedureReturn CallWindowProc_(oldproc, hWnd, uMsg, wParam, lParam)
 	EndProcedure
 	
 	CompilerIf #Func_AutoDragScroll
@@ -1665,10 +1905,10 @@ Module PureTL
 			AddPathBox(*Data\Meas_List_Width,0 , *Data\Meas_Body_Width + *Data\Meas_Body_Width, *Data\Meas_Header_Height)
 			VectorSourceColor(SetAlpha($FF, *Data\Colors_Header_Back))
 			FillPath()
-			MovePathCursor(*Data\Meas_List_Width, *Data\Meas_Header_Height )
-			AddPathLine(*Data\Meas_Body_Width, 0, #PB_Path_Relative)
+			MovePathCursor(0, *Data\Meas_Header_Height )
+			AddPathLine(*Data\Meas_Gadget_Width, 0, #PB_Path_Relative)
 			VectorSourceColor(SetAlpha($FF, 0))
-			StrokePath(1)
+			StrokePath(2)
 			
 			; Fill the empty bottom of the gadget body if needed
 			If LineLoop < *Data\Meas_Line_Visible + 1
@@ -1987,7 +2227,7 @@ Module PureTL
 			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_Maximum, *Data\Meas_Line_Total)
 			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_PageLength, *Data\Meas_Line_Visible)
 			*Data\Meas_VScrollBar_Visible = #True
-			*Data\Meas_Body_Width - #Style_Player_Width
+ 			*Data\Meas_Body_Width - #Style_ScrollbarThickness
 			ScrollVertical(Gadget)
 		Else
 			SetGadgetAttribute(*Data\Comp_VScrollBar, #PB_ScrollBar_Maximum, 1)
@@ -2017,14 +2257,14 @@ Module PureTL
 		EndIf
 		
 		If *Data\Meas_HScrollBar_Visible
-			ResizeGadget(*Data\Comp_HScrollBar, *Data\Meas_List_Width, *Data\Meas_Gadget_Height - #Style_ScrollbarThickness, *Data\Meas_Body_Width - *Data\Meas_VScrollBar_Visible * #Style_ScrollbarThickness, #Style_ScrollbarThickness)
+			ResizeGadget(*Data\Comp_HScrollBar, *Data\Meas_List_Width, *Data\Meas_Gadget_Height - #Style_ScrollbarThickness, *Data\Meas_Body_Width, #Style_ScrollbarThickness)
 			HideGadget(*Data\Comp_HScrollBar, #False)
 		Else
 			HideGadget(*Data\Comp_HScrollBar, #True)
 		EndIf
 		
 		If *Data\Meas_HScrollBar_Visible And *Data\Meas_VScrollBar_Visible
-			ResizeGadget(*Data\Comp_CornerCover, *Data\Meas_Gadget_Width - #Style_ScrollbarThickness, *Data\Meas_Gadget_Height - #Style_ScrollbarThickness, #PB_Ignore, #PB_Ignore)
+			ResizeGadget(*Data\Comp_CornerCover, *Data\Meas_Gadget_Width - #Style_ScrollbarThickness, *Data\Meas_Gadget_Height - #Style_ScrollbarThickness, #Style_ScrollbarThickness, #Style_ScrollbarThickness)
 			HideGadget(*Data\Comp_CornerCover, #False)
 		Else
 			HideGadget(*Data\Comp_CornerCover, #True)
@@ -2239,6 +2479,41 @@ Module PureTL
 	Procedure CompareDescending(*a.MBAdress, *b.MBAdress)
 		ProcedureReturn *b\Object\FirstBlock - *a\Object\FirstBlock
 	EndProcedure
+	
+	Procedure RebuildRecurcive(Gadget, List *Content_Lines.Line())
+		Protected *Data.GadgetData = GetGadgetData(Gadget)
+		
+		ForEach *Content_Lines()
+			AddElement(*Data\Content_DisplayedLines())
+			*Data\Content_DisplayedLines() = *Content_Lines()
+			*Content_Lines()\DisplayListAdress = @*Data\Content_DisplayedLines()
+			
+			If *Content_Lines()\State
+				*Data\State_SelectedLine = ListIndex(*Content_Lines())
+			EndIf
+			
+			If *Content_Lines()\Fold = #Unfolded
+				RebuildRecurcive(Gadget, *Content_Lines()\Content_Lines())
+			EndIf
+		Next
+	EndProcedure
+	
+	Procedure RebuildDisplayList(Gadget)
+		Protected *Data.GadgetData = GetGadgetData(Gadget)
+		ForEach *Data\Content_Lines()
+			AddElement(*Data\Content_DisplayedLines())
+			*Data\Content_DisplayedLines() = *Data\Content_Lines()
+			*Data\Content_Lines()\DisplayListAdress = @*Data\Content_DisplayedLines()
+			
+			If *Data\Content_Lines()\State
+				*Data\State_SelectedLine = ListIndex(*Data\Content_DisplayedLines())
+			EndIf
+			
+			If *Data\Content_Lines()\Fold = #Unfolded
+				RebuildRecurcive(Gadget, *Data\Content_Lines()\Content_Lines())
+			EndIf
+		Next
+	EndProcedure
 	;}
 EndModule
 
@@ -2287,6 +2562,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 356
-; Folding = AwAAAAAAYAAAAAAAw
+; CursorPosition = 1664
+; FirstLine = 391
+; Folding = AwAJBoDAACACAKAACA+
 ; EnableXP
