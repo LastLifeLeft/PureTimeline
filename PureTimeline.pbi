@@ -1952,11 +1952,13 @@ Module PureTL
 					SetActiveGadget(*Data\Comp_Canvas)
 					Redraw(*Data\Comp_Canvas)
 				EndIf
+				ProcedureReturn #False
 			Case #WM_KILLFOCUS
 				Gadget = GetProp_(hWnd, "gadget")
 				*Data.GadgetData = GetGadgetData(Gadget)
 				*Data\State_UserAction = #Action_Hover
 				FreeGadget(Gadget)
+				ProcedureReturn #False
 		EndSelect
 		
 		ProcedureReturn CallWindowProc_(oldproc, hWnd, uMsg, wParam, lParam)
@@ -2721,6 +2723,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1053
-; Folding = AwAIBACYQBABAAAABA-
+; CursorPosition = 1956
+; FirstLine = 36
+; Folding = AgAABACAAAAAAgAAAA-
 ; EnableXP
