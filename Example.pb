@@ -15,7 +15,7 @@ PureTL::Freeze(0, #True)
 PureTL::AddLine(0, -1, "Line 1")
 Line = PureTL::AddLine(0, -1, "Line 2")
 PureTL::AddLine(0, -1, "SubLine 1", Line)
-SubLine = PureTL::AddLine(0, -1, "SubLine 2", Line)
+SubLine = PureTL::AddLine(0, -1, "SubLine 2", Line, PureTL::#Line_Folder)
 PureTL::AddLine(0, -1, "SubLine 3", Line)
 PureTL::AddLine(0, -1, "SubSubLine 1", SubLine)
 PureTL::AddLine(0, -1, "SubSubLine 2", SubLine)
@@ -59,6 +59,6 @@ Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 46
+; CursorPosition = 17
 ; Folding = 9
 ; EnableXP

@@ -8,7 +8,7 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-04-21 04:05" user="Poshu" host="DESKTOP-OQ0F2A5"/>
+    <lastopen date="2021-04-22 05:13" user="Poshu" host="DESKTOP-OQ0F2A5"/>
   </section>
   <section name="files">
     <file name="CanvasButton\CanvasButton.pbi">
@@ -17,7 +17,7 @@
     </file>
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="bec3f5a2958c42123d04208826eb2a7d"/>
+      <fingerprint md5="10d641bdf17d98b4d9e7e7679d7bba3d"/>
     </file>
     <file name="MaterialScrollBar\ScrollBar.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
@@ -29,7 +29,7 @@
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="1ec47bebe05829fa15e8a8e4069d9821"/>
+      <fingerprint md5="d18a06f8f72342bfd655aadc63ba83cc"/>
     </file>
   </section>
   <section name="targets">
