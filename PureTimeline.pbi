@@ -1941,6 +1941,7 @@ Module PureTL
 		Select uMsg
 			Case #WM_NCDESTROY
 				RemoveProp_(hWnd, "oldproc")
+				RemoveProp_(hWnd, "gadget")
 			Case #WM_KEYDOWN
 				Gadget = GetProp_(hWnd, "gadget")
 				If wParam = #VK_RETURN And GetGadgetText(Gadget) <> ""
@@ -1955,10 +1956,7 @@ Module PureTL
 				Gadget = GetProp_(hWnd, "gadget")
 				*Data.GadgetData = GetGadgetData(Gadget)
 				*Data\State_UserAction = #Action_Hover
-				RemoveProp_(hWnd, "oldproc")
-				RemoveProp_(hWnd, "gadget")
 				FreeGadget(Gadget)
-				ProcedureReturn #Null
 		EndSelect
 		
 		ProcedureReturn CallWindowProc_(oldproc, hWnd, uMsg, wParam, lParam)
@@ -2723,7 +2721,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 356
-; FirstLine = 29
+; CursorPosition = 1053
 ; Folding = AwAIBACYQBABAAAABA-
 ; EnableXP
