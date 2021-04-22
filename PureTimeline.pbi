@@ -1958,6 +1958,7 @@ Module PureTL
 				RemoveProp_(hWnd, "oldproc")
 				RemoveProp_(hWnd, "gadget")
 				FreeGadget(Gadget)
+				ProcedureReturn #Null
 		EndSelect
 		
 		ProcedureReturn CallWindowProc_(oldproc, hWnd, uMsg, wParam, lParam)
@@ -2722,7 +2723,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1218
-; FirstLine = 419
-; Folding = AwAJBACeQBABAAAAFA-
+; CursorPosition = 356
+; FirstLine = 29
+; Folding = AwAIBACYQBABAAAABA-
 ; EnableXP
