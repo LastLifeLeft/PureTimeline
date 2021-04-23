@@ -354,6 +354,7 @@ DeclareModule PureTL
 	Declare GetActiveLine(Gadget)
 	Declare GetLineType(Gadget, LineID)
 	Declare GetActiveLineID(Gadget)
+	Declare GetPlayerPosition(Gadget)
 	
 	Declare SetActiveLine(Gadget, Position)
 	
@@ -1015,6 +1016,12 @@ Module PureTL
 		EndIf
 			
 		ProcedureReturn #Default
+	EndProcedure
+	
+	Procedure GetPlayerPosition(Gadget)
+		Protected *Data.GadgetData = GetGadgetData(Gadget)
+		
+		ProcedureReturn *Data\State_PlayerPosition
 	EndProcedure
 	
 	Procedure AddDataPoint(Gadget, *Line.Line, Position)
@@ -2742,7 +2749,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1008
-; FirstLine = 67
-; Folding = AwAABIIAAAAAAAAAAA9
+; CursorPosition = 356
+; FirstLine = 1
+; Folding = AwAABAQAAAAAAAAAAA5
 ; EnableXP
