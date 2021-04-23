@@ -1003,7 +1003,7 @@ Module PureTL
 	
 	Procedure GetActiveLineID(Gadget) ; We need to simplify lineID and line position, this is a pain... Great refactor incoming
 		Protected *Data.GadgetData = GetGadgetData(Gadget)
-		SelectElement( , *Data\State_SelectedLine)
+		SelectElement(*Data\Content_DisplayedLines(), *Data\State_SelectedLine)
 		ProcedureReturn *Data\Content_DisplayedLines()
 	EndProcedure
 	
@@ -2740,6 +2740,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 355
+; CursorPosition = 1005
+; FirstLine = 76
 ; Folding = AwAABIIAAAAAAAAAAA9
 ; EnableXP
