@@ -1021,7 +1021,7 @@ Module PureTL
 	Procedure GetPlayerPosition(Gadget)
 		Protected *Data.GadgetData = GetGadgetData(Gadget)
 		
-		ProcedureReturn *Data\State_PlayerPosition
+		ProcedureReturn *Data\State_PlayerPosition - #Style_Body_ColumnMargin
 	EndProcedure
 	
 	Procedure AddDataPoint(Gadget, *Line.Line, Position)
@@ -2749,7 +2749,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 356
-; FirstLine = 1
-; Folding = AwAABAQAAAAAAAAAAA5
+; CursorPosition = 1023
+; FirstLine = 52
+; Folding = AwAABgQAAAAAAAAAAA5
 ; EnableXP
