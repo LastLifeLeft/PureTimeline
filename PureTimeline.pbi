@@ -327,6 +327,7 @@ DeclareModule PureTL
 	; Public variables, structures, constants...
 	EnumerationBinary ;Flags
 		#Default = 0
+		#Line_Default = 0
 		#Line_Folder
 	EndEnumeration
 	
@@ -351,8 +352,9 @@ DeclareModule PureTL
 	
 	Declare GetLineID(Gadget, Position, ParentID = 0)
 	Declare GetActiveLine(Gadget)
+	Declare GetLineType(Gadget, LineID)
 	
-	Declare SetActiveLine(Gadget, Line)
+	Declare SetActiveLine(Gadget, Position)
 	
 	Declare AddDataPoint(Gadget, LineID, Position)
 	
@@ -888,7 +890,7 @@ Module PureTL
 		Redraw(Gadget)
 	EndProcedure
 	
-	Procedure AddLine(Gadget, Position, Text.s, *ParentID.Line = 0, Flags = #Default)
+	Procedure AddLine(Gadget, Position, Text.s, *ParentID.Line = 0, Flags = #Line_Default)
 		Protected *Data.GadgetData = GetGadgetData(Gadget)
 		Protected *NewLine.Line = AllocateStructure(Line), *PreviousLine.Line
 		
@@ -993,6 +995,19 @@ Module PureTL
 		EndIf
 	EndProcedure
 	
+	Procedure GetActiveLine(Gadget)
+		Protected *Data.GadgetData = GetGadgetData(Gadget)
+		ProcedureReturn *Data\State_SelectedLine
+	EndProcedure
+	
+	Procedure GetLineType(Gadget, *Line.Line)
+		If *Line\Folder
+			ProcedureReturn #Line_Folder
+		EndIf
+			
+		ProcedureReturn #Default
+	EndProcedure
+	
 	Procedure AddDataPoint(Gadget, *Line.Line, Position)
 		Protected *Data.GadgetData = GetGadgetData(Gadget), *Point.DataPoint = AllocateMemory(SizeOf(DataPoint))
 		
@@ -1028,11 +1043,6 @@ Module PureTL
 	
 	Procedure ResizeMediaBlock(Gadget, MediablockID, Start, Finish)
 		
-	EndProcedure
-	
-	Procedure GetActiveLine(Gadget)
-		Protected *Data.GadgetData = GetGadgetData(Gadget)
-		ProcedureReturn *Data\State_SelectedLine
 	EndProcedure
 	
 	Procedure SetActiveLine(Gadget, Line)
@@ -2723,7 +2733,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1956
-; FirstLine = 36
-; Folding = AgAABACAAAAAAgAAAA-
+; CursorPosition = 356
+; FirstLine = 3
+; Folding = AwAABAEAAAAAAAAAAA+
 ; EnableXP
