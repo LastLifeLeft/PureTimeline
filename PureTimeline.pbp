@@ -8,16 +8,16 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-04-23 17:08" user="Poshu" host="DESKTOP-OQ0F2A5"/>
+    <lastopen date="2021-04-24 16:00" user="Poshu" host="DESKTOP-OQ0F2A5"/>
   </section>
   <section name="files">
     <file name="CanvasButton\CanvasButton.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="683c027463ea4ee11c5187a410e8490c"/>
+      <fingerprint md5="69c0f8c9d54b04f785bea0df207c5808"/>
     </file>
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="10d641bdf17d98b4d9e7e7679d7bba3d"/>
+      <fingerprint md5="2f7b429aaef86da18571662145bda418"/>
     </file>
     <file name="MaterialScrollBar\ScrollBar.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
@@ -25,11 +25,11 @@
     </file>
     <file name="MaterialVector\MaterialVector.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="13e4f2ea4ca8be4658b406384021c27c"/>
+      <fingerprint md5="4229af68bc2b6a8148efe9db9e6d1885"/>
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="36adeac38d5f3ff9e313b3a29a8b7e01"/>
+      <fingerprint md5="80be3f9e573200c5d23af93da5b3f81b"/>
     </file>
   </section>
   <section name="targets">
