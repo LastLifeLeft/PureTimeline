@@ -10,7 +10,7 @@ CompilerIf Not Defined(ScrollBar, #PB_Module)
 	IncludeFile "MaterialScrollBar\ScrollBar.pbi"
 CompilerEndIf
 
-CompilerIf Not Defined(SortLinkedList, #PB_Module) ; Couldn't figure out a nice way to sort the selected lists with the built in structured list sort, so I'll use this one : https://www.purebasic.fr/english/viewtopic.php?f=12&t=72352 
+CompilerIf Not Defined(SortLinkedList, #PB_Module) ; Couldn't figure how to sort the selected lists with the built in structured list sort, so I'll use this one : https://www.purebasic.fr/english/viewtopic.php?f=12&t=72352 
 	DeclareModule SortLinkedList
 		
 		; v 1.10  March 2, 2019
@@ -325,17 +325,26 @@ CompilerEndIf
 
 DeclareModule PureTL
 	; Public variables, structures, constants...
-	EnumerationBinary ;Flags
+	EnumerationBinary ;Gadget Flags
 		#Default = 0
+	EndEnumeration
+	
+	Enumeration ; Line Flags
 		#Line_Default = 0
 		#Line_Folder
 	EndEnumeration
 	
-	EnumerationBinary 1 ; Items flags
-		#Item_ShowChildrenPoints
-		#Item_ShowParentBlocks
-		#Item_InheritColor
+	Enumeration ; Media block flags
+		#MB_Default = 0
+		#MB_FixedSize
+		#MB_FreeSize
 	EndEnumeration
+	
+; 	EnumerationBinary 1 ; Items flags
+; 		#Item_ShowChildrenPoints
+; 		#Item_ShowParentBlocks
+; 		#Item_InheritColor
+; 	EndEnumeration
 	
 	Enumeration ;Content Type
 		#Content_Media
@@ -347,7 +356,7 @@ DeclareModule PureTL
 	Declare Resize(Gadget, X, Y, Width, Height)
 	Declare Freeze(Gadget, State)
 	
-	Declare AddLine(Gadget, Position, Text.s, ParentID = 0, Flags = #Default)
+	Declare AddLine(Gadget, Position, Text.s, ParentID = 0, Flags = #Default, UUID.s = "")
 	Declare DeleteLine(Gadget, LineID)
 	
 	Declare GetLineID(Gadget, Position, ParentID = 0)
@@ -358,9 +367,9 @@ DeclareModule PureTL
 	
 	Declare SetActiveLine(Gadget, Position)
 	
-	Declare AddDataPoint(Gadget, LineID, Position)
+	Declare AddDataPoint(Gadget, LineID, Position, Flags = #Default, UUID.s = "")
 	
-	Declare AddMediaBlock(Gadget, LineID, Start, Finish, Icon = -1)
+	Declare AddMediaBlock(Gadget, LineID, Start, Finish, UUID.s, Icon = -1, Flags = #MB_Default)
 	Declare ResizeMediaBlock(Gadget, MediablockID, Start, Finish)
 EndDeclareModule
 
@@ -418,11 +427,22 @@ Module PureTL
 		#Action_RenameLayer
 	EndEnumeration
 	
+	Enumeration ; Tasks
+		#AddLine
+		#RemoveLine
+		#AddFolder
+		#RemoveFolder
+		#AddMB
+		#RemoveMB
+		#AddDP
+		#RemoveDP
+	EndEnumeration
+	
 	; Functionality
 	#Func_LineSelection = #True
 	#Func_AutoDragScroll = #True		; Will enable the automatic scroll when the user is draging/resizing something outside of the gadget. This uses a few sketchy methods to achieve its goal...
 	
-	; Style
+	;{ Style
 	#Style_Header_Height = 60
 	#Style_Header_ButtonSize = 30
 	#Style_Header_Space = 10
@@ -448,7 +468,6 @@ Module PureTL
 	#Style_List_IconSize = 20
 	#Style_List_IconOfsset = 24
 	
-	
 	#Style_List_Edit_StringHeight = 30
 	#Style_List_Edit_HMargin = 10
 	
@@ -470,8 +489,9 @@ Module PureTL
 	#Style_MediaBlock_IconMinimumWidth = #Style_MediaBlock_IconSize + #Style_MediaBlock_IconXOffset + 10
 	
 	#Style_ScrollbarThickness = 12
+	;}
 	
-	; Colors
+	;{ Colors
 	#Color_ListBack		= $2F3136
 	#Color_ListFront 	= $FFFFFF
 	
@@ -497,8 +517,9 @@ Module PureTL
 	#Color_Content_Count = 6
 	
 	#Color_Player = $FF6654
+	;}
 	
-	; Misc
+	;{ Misc
 	#Misc_DragTimer = 42
 	#Misc_VerticalFocusTimer = #Misc_DragTimer + 1
 	#Misc_DragTimerDuration = 33
@@ -509,6 +530,7 @@ Module PureTL
 	#Misc_ResizeHotZone = 7
 	#Misc_ResizeFromFirst = 0
 	#Misc_ResizeFromLast = 1
+	;}
 	
 	Structure MediaBlock
 		BlockType.b
@@ -516,14 +538,23 @@ Module PureTL
 		LastBlock.i
 		Icon.i
 		State.b
+		ExtensionStart.i
+		ExtensionEnd.i
+		
+		Resizable.b
+		
 		*Line.Line
 		*StateListElement
+		
+		UUID.s
 	EndStructure
 	
 	Structure DataPoint
 		Position.i
 		State.b
 		*Line.Line
+		
+		UUID.s
 	EndStructure
 	
 	Structure DPAdress 				; Dirty workaround for the structured list sorting procedures
@@ -549,6 +580,8 @@ Module PureTL
 		List *Content_Lines.Line()
 		Array *DataPoints.DataPoint(1)
 		Array *MediaBlocks.MediaBlock(1)
+		
+		UUID.s
 	EndStructure
 	
 	Structure GadgetData
@@ -892,8 +925,8 @@ Module PureTL
 		Redraw(Gadget)
 	EndProcedure
 	
-	Procedure AddLine(Gadget, Position, Text.s, *ParentID.Line = 0, Flags = #Line_Default)
-		Protected *Data.GadgetData = GetGadgetData(Gadget)
+	Procedure AddLine(Gadget, Position, Text.s, *ParentID.Line = 0, Flags = #Line_Default, UUID.s = "")
+		Protected *Data.GadgetData = GetGadgetData(Gadget), *Task
 		Protected *NewLine.Line = AllocateStructure(Line), *PreviousLine.Line
 		
 		If *ParentID
@@ -1024,7 +1057,7 @@ Module PureTL
 		ProcedureReturn *Data\State_PlayerPosition - #Style_Body_ColumnMargin
 	EndProcedure
 	
-	Procedure AddDataPoint(Gadget, *Line.Line, Position)
+	Procedure AddDataPoint(Gadget, *Line.Line, Position, Flags = #MB_Default, UUID.s = "")
 		Protected *Data.GadgetData = GetGadgetData(Gadget), *Point.DataPoint = AllocateMemory(SizeOf(DataPoint))
 		
 		Position + #Style_Body_ColumnMargin
@@ -1033,12 +1066,14 @@ Module PureTL
 		*Point\State = #False
 		*Point\Line = *Line
 		
+		*Point\UUID = UUID
+		
 		*Line\DataPoints(Position) = *Point
 		
 		Redraw(Gadget)
 	EndProcedure
 	
-	Procedure AddMediaBlock(Gadget, *Line.Line, Start, Finish, Icon = -1)
+	Procedure AddMediaBlock(Gadget, *Line.Line, Start, Finish, UUID.s, Icon = -1, Flags = #MB_Default)
 		Protected *Data.GadgetData = GetGadgetData(Gadget), *Block.Mediablock = AllocateMemory(SizeOf(Mediablock)), Loop
 		
 		Start + #Style_Body_ColumnMargin
@@ -1048,11 +1083,27 @@ Module PureTL
 		*Block\LastBlock = Finish
 		*Block\Line = *Line
 		
+		If Flags & #MB_FixedSize
+			*Block\Resizable = #False
+		Else
+			*Block\Resizable = #True
+		EndIf
+		
+		If Flags & #MB_FreeSize
+			*Block\ExtensionEnd = - 1
+			*Block\ExtensionStart = - 1
+		EndIf
+		
 		*Block\Icon = Icon
 		
 		For loop = Start To Finish
 			*Line\Mediablocks(Loop) = *Block
 		Next
+		
+		If UUID = ""
+		Else
+			*Block\UUID = UUID
+		EndIf
 		
 		Redraw(Gadget)
 	EndProcedure
@@ -1990,6 +2041,7 @@ Module PureTL
 		ProcedureReturn CallWindowProc_(oldproc, hWnd, uMsg, wParam, lParam)
 	EndProcedure
 	
+	
 	CompilerIf #Func_AutoDragScroll
 		Procedure HandlerTimerWindow()
 			Protected Window = EventWindow(), *Data.GadgetData = GetWindowData(Window), Column, Timer = EventTimer()
@@ -2111,8 +2163,8 @@ Module PureTL
 	
 	Procedure DrawLine(*Data.GadgetData)
 		Protected Index = ListIndex(*Data\Content_DisplayedLines()) - *Data\State_VerticalScroll, ContentLoop, ContentLoopEnd, YPos = *Data\Meas_Header_Height + Index * #Style_Line_Height
-		Protected DragFirstBlock, DragLastBlock, Icon, Flags
-		; Body
+		Protected DragFirstBlock, DragLastBlock, Icon, Flags, DragOffsetStart, DragOffsetEnd
+		;{ Body
 		If (Index + *Data\State_VerticalScroll) % 2 Or *Data\Content_DisplayedLines()\State
 			VectorSourceColor(SetAlpha($FF,*Data\Colors_Body_AltBack))
 		Else
@@ -2149,9 +2201,9 @@ Module PureTL
 		FillPath(#PB_Path_Preserve)
 		VectorSourceColor($FF000000)
 		StrokePath(1.5)
+		;}
 		
-		; Draw the scroll and resize effect
-		If *Data\State_UserAction = #Action_ItemMove
+		If *Data\State_UserAction = #Action_ItemMove ;{ Draw movement effect
 			ForEach *Data\State_SelectedMediaBlocks()
 				If *Data\State_SelectedMediaBlocks()\Line = *Data\Content_DisplayedLines()
 					
@@ -2174,22 +2226,44 @@ Module PureTL
 					StrokePath(2)
 				EndIf
 			Next
-		ElseIf *Data\State_UserAction = #Action_ItemResize
+			;}
+		ElseIf *Data\State_UserAction = #Action_ItemResize ;{ Draw the resize effect
 			ForEach *Data\State_SelectedMediaBlocks()
 				If *Data\State_SelectedMediaBlocks()\Line = *Data\Content_DisplayedLines()
-					
-					DragFirstBlock = *Data\State_SelectedMediaBlocks()\FirstBlock + Bool(*Data\Drag_Direction = #Misc_ResizeFromFirst) * *Data\Drag_Offset
-					If DragFirstBlock < #Style_Body_ColumnMargin
-						DragFirstBlock = #Style_Body_ColumnMargin
-					ElseIf DragFirstBlock >= *Data\State_SelectedMediaBlocks()\LastBlock
-						DragFirstBlock = *Data\State_SelectedMediaBlocks()\LastBlock - 1
-					EndIf
-					
-					DragLastBlock = *Data\State_SelectedMediaBlocks()\LastBlock + Bool(*Data\Drag_Direction = #Misc_ResizeFromLast) * *Data\Drag_Offset
-					If DragLastBlock > *Data\Content_Duration - #Style_Body_ColumnMargin
-						DragLastBlock = *Data\Content_Duration - #Style_Body_ColumnMargin
-					ElseIf DragLastBlock <=  *Data\State_SelectedMediaBlocks()\FirstBlock
-						DragLastBlock = *Data\State_SelectedMediaBlocks()\FirstBlock + 1
+					If *Data\State_SelectedMediaBlocks()\Resizable
+						
+						If *Data\Drag_Direction = #Misc_ResizeFromFirst
+							If *Data\State_SelectedMediaBlocks()\ExtensionStart = -1 Or *Data\Drag_Offset * -1 < *Data\State_SelectedMediaBlocks()\ExtensionStart
+								DragOffsetStart = *Data\Drag_Offset
+							Else
+								DragOffsetStart = *Data\State_SelectedMediaBlocks()\ExtensionStart * - 1
+							EndIf
+							DragOffsetEnd = 0
+						Else
+							DragOffsetStart = 0
+							If *Data\State_SelectedMediaBlocks()\ExtensionEnd = -1 Or *Data\Drag_Offset < *Data\State_SelectedMediaBlocks()\ExtensionEnd
+								DragOffsetEnd = *Data\Drag_Offset
+							Else
+								DragOffsetEnd = *Data\State_SelectedMediaBlocks()\ExtensionEnd
+							EndIf
+						EndIf
+						
+						DragFirstBlock = *Data\State_SelectedMediaBlocks()\FirstBlock + DragOffsetStart
+						If DragFirstBlock < #Style_Body_ColumnMargin
+							DragFirstBlock = #Style_Body_ColumnMargin
+						ElseIf DragFirstBlock >= *Data\State_SelectedMediaBlocks()\LastBlock
+							DragFirstBlock = *Data\State_SelectedMediaBlocks()\LastBlock - 1
+						EndIf
+						
+						DragLastBlock = *Data\State_SelectedMediaBlocks()\LastBlock + DragOffsetEnd
+						If DragLastBlock > *Data\Content_Duration - #Style_Body_ColumnMargin
+							DragLastBlock = *Data\Content_Duration - #Style_Body_ColumnMargin
+						ElseIf DragLastBlock <=  *Data\State_SelectedMediaBlocks()\FirstBlock
+							DragLastBlock = *Data\State_SelectedMediaBlocks()\FirstBlock + 1
+						EndIf
+					Else
+						DragFirstBlock = *Data\State_SelectedMediaBlocks()\FirstBlock
+						DragLastBlock = *Data\State_SelectedMediaBlocks()\LastBlock
 					EndIf
 					
 					AddPathMediaBlock((DragFirstBlock - *Data\State_HorizontalScroll) * *Data\Meas_Column_Width - 1  + *Data\Meas_List_Width,
@@ -2200,17 +2274,18 @@ Module PureTL
 					StrokePath(2)
 				EndIf
 			Next
-		EndIf
+		EndIf ;}
 		
-		; PLayer
+		;{ PLayer
 		If *Data\PlayerX + #Style_Player_TopWidth > *Data\Meas_List_Width 
 			MovePathCursor(*Data\PlayerX + #Style_Player_TopOffset - 0.5, YPos)
 			AddPathBox(0,0, #Style_Player_Width, #Style_Line_Height, #PB_Path_Relative)
 			VectorSourceColor(SetAlpha($FF, FixColor(#Color_Player)))
 			FillPath()
 		EndIf
+		;}
 		
-		; List
+		;{ List
 		AddPathBox(0, YPos , *Data\Meas_List_Width, #Style_Line_Height)
 		VectorSourceColor(SetAlpha($FF, *Data\Colors_List_Back))
 		If *Data\Content_DisplayedLines()\State
@@ -2250,7 +2325,7 @@ Module PureTL
 		EndIf
 		
 		VectorSourceColor(SetAlpha(#Color_Blending_Front_Warm ,*Data\Colors_List_Front))
-		DrawVectorText(*Data\Content_DisplayedLines()\Text)
+		DrawVectorText(*Data\Content_DisplayedLines()\Text) ;}
 	EndProcedure
 	
 	Procedure DrawMediaBlock(*Data.GadgetData, YPos, *Block.Mediablock)
@@ -2471,50 +2546,69 @@ Module PureTL
 	Procedure ResizeMB(*Data.GadgetData, *Block.MediaBlock, Offset, Direction)
 		Protected TargetFirstBlock, TargetLastBlock, Loop, Success, TargetOffset, ResultOffset, TempBlock
 		
-		For Loop = *Block\FirstBlock To *Block\LastBlock
-			*Block\Line\MediaBlocks(Loop) = 0
-		Next
-		
-		If Direction = #Misc_ResizeFromFirst
-			TargetFirstBlock = Min(max(*Block\FirstBlock + Offset, #Style_Body_ColumnMargin), *Block\LastBlock - 1)
-			TargetLastBlock = *Block\LastBlock
-			If Offset < 0
-				For Loop = TargetFirstBlock To *Block\FirstBlock
-					If *Block\Line\MediaBlocks(Loop)
-						TempBlock = *Block\Line\MediaBlocks(Loop)\LastBlock
-						TargetOffset = TargetFirstBlock - *Block\Line\MediaBlocks(Loop)\LastBlock - 1
-						ResultOffset = MoveMB(*Data, *Block\Line\MediaBlocks(Loop), TargetOffset, #True)
-						If TargetOffset <> ResultOffset
-							TargetFirstBlock - (TargetOffset - ResultOffset)
-						EndIf
-						Loop = TempBlock
+		If *Block\Resizable
+			For Loop = *Block\FirstBlock To *Block\LastBlock
+				*Block\Line\MediaBlocks(Loop) = 0
+			Next
+			
+			If Direction = #Misc_ResizeFromFirst
+				If *Block\ExtensionStart > -1
+					If Offset * -1 > *Block\ExtensionStart
+						Offset = *Block\ExtensionStart * -1
 					EndIf
-				Next
-			EndIf
-		Else
-			TargetFirstBlock = *Block\FirstBlock
-			TargetLastBlock = max(Min(*Block\LastBlock + Offset, *Data\Content_Duration - #Style_Body_ColumnMargin), *Block\FirstBlock + 1)
-			If Offset > 0
-				For Loop = TargetLastBlock To *Block\LastBlock Step -1
-					If *Block\Line\MediaBlocks(Loop)
-						TempBlock = *Block\Line\MediaBlocks(Loop)\FirstBlock
-						TargetOffset = TargetLastBlock - *Block\Line\MediaBlocks(Loop)\FirstBlock + 1
-						ResultOffset = MoveMB(*Data, *Block\Line\MediaBlocks(Loop), TargetOffset, #True)
-						If TargetOffset <> ResultOffset
-							TargetFirstBlock - (TargetOffset - ResultOffset)
+					
+					*Block\ExtensionStart + Offset
+				EndIf
+				
+				TargetFirstBlock = Min(max(*Block\FirstBlock + Offset, #Style_Body_ColumnMargin), *Block\LastBlock - 1)
+				TargetLastBlock = *Block\LastBlock
+				If Offset < 0
+					For Loop = TargetFirstBlock To *Block\FirstBlock
+						If *Block\Line\MediaBlocks(Loop)
+							TempBlock = *Block\Line\MediaBlocks(Loop)\LastBlock
+							TargetOffset = TargetFirstBlock - *Block\Line\MediaBlocks(Loop)\LastBlock - 1
+							ResultOffset = MoveMB(*Data, *Block\Line\MediaBlocks(Loop), TargetOffset, #True)
+							If TargetOffset <> ResultOffset
+								TargetFirstBlock - (TargetOffset - ResultOffset)
+							EndIf
+							Loop = TempBlock
 						EndIf
-						Loop = TempBlock
+					Next
+				EndIf
+			Else
+				TargetFirstBlock = *Block\FirstBlock
+				
+				If *Block\ExtensionEnd > -1
+					If Offset > *Block\ExtensionEnd
+						Offset = *Block\ExtensionEnd
 					EndIf
-				Next
+					
+					*Block\ExtensionEnd - Offset
+				EndIf
+				
+				TargetLastBlock = max(Min(*Block\LastBlock + Offset, *Data\Content_Duration - #Style_Body_ColumnMargin), *Block\FirstBlock + 1)
+				If Offset > 0
+					For Loop = TargetLastBlock To *Block\LastBlock Step -1
+						If *Block\Line\MediaBlocks(Loop)
+							TempBlock = *Block\Line\MediaBlocks(Loop)\FirstBlock
+							TargetOffset = TargetLastBlock - *Block\Line\MediaBlocks(Loop)\FirstBlock + 1
+							ResultOffset = MoveMB(*Data, *Block\Line\MediaBlocks(Loop), TargetOffset, #True)
+							If TargetOffset <> ResultOffset
+								TargetFirstBlock - (TargetOffset - ResultOffset)
+							EndIf
+							Loop = TempBlock
+						EndIf
+					Next
+				EndIf
 			EndIf
+			
+			*Block\FirstBlock = TargetFirstBlock
+			*Block\LastBlock = TargetLastBlock
+			
+			For Loop = *Block\FirstBlock To *Block\LastBlock
+				*Block\Line\MediaBlocks(Loop) = *Block
+			Next
 		EndIf
-		
-		*Block\FirstBlock = TargetFirstBlock
-		*Block\LastBlock = TargetLastBlock
-		
-		For Loop = *Block\FirstBlock To *Block\LastBlock
-			*Block\Line\MediaBlocks(Loop) = *Block
-		Next
 	EndProcedure
 	
 	Procedure MoveMB(*Data.GadgetData, *Block.MediaBlock, Offset, ForceDirection = #False)
@@ -2749,7 +2843,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 1023
-; FirstLine = 52
-; Folding = AwAABgQAAAAAAAAAAA5
+; CursorPosition = 2042
+; FirstLine = 2024
+; Folding = ----------------------
 ; EnableXP
