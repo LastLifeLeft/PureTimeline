@@ -8,16 +8,16 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-04-24 16:15" user="Poshu" host="DESKTOP-OQ0F2A5"/>
+    <lastopen date="2021-04-25 16:46" user="Poshu" host="DESKTOP-OQ0F2A5"/>
   </section>
   <section name="files">
     <file name="CanvasButton\CanvasButton.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="683c027463ea4ee11c5187a410e8490c"/>
+      <fingerprint md5="4fbbf8c186f2146678fd1da85a57b49e"/>
     </file>
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="6344b35b8e2f4254ecbec16d06e5397c"/>
+      <fingerprint md5="ae6bea7a5008fcd6c0d11a90076263cf"/>
     </file>
     <file name="MaterialScrollBar\ScrollBar.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
@@ -29,11 +29,15 @@
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="5851544eb4e70957694b1bc1ff1948e8"/>
+      <fingerprint md5="035be763775a68091595378f6a18e8d2"/>
     </file>
     <file name="TaskList\TaskList.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="afe06d0ad315bfde29ca0d9256aab9c3"/>
+      <fingerprint md5="04bfa1d3c4aebe42b6eadaa78fc26ed3"/>
+    </file>
+    <file name="TextBox\Textbox.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
+      <fingerprint md5="143766b464ce852f3d399bee110f979d"/>
     </file>
   </section>
   <section name="targets">
