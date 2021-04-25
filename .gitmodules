@@ -1,3 +1,9 @@
+[submodule "TaskList"]
+	path = TaskList
+	url = https://github.com/LastLifeLeft/TaskList
+[submodule "TextBox"]
+	path = TextBox
+	url = https://github.com/LastLifeLeft/TextBox
 [submodule "MaterialVector"]
 	path = MaterialVector
 	url = https://github.com/LastLifeLeft/MaterialVector
