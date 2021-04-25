@@ -6,6 +6,10 @@ CompilerIf Not Defined(CanvasButton, #PB_Module)
 	IncludeFile "CanvasButton\CanvasButton.pbi"
 CompilerEndIf
 
+CompilerIf Not Defined(TextBox, #PB_Module)
+	IncludeFile "Textbox.pbi"
+CompilerEndIf
+
 CompilerIf Not Defined(ScrollBar, #PB_Module)
 	IncludeFile "MaterialScrollBar\ScrollBar.pbi"
 CompilerEndIf
@@ -327,8 +331,6 @@ CompilerIf Not Defined(TaskList, #PB_Module)
 	IncludeFile "TaskList\TaskList.pbi"
 CompilerEndIf
 
-CompilerIf Not Defined(
-
 DeclareModule PureTL
 	; Public variables, structures, constants...
 	EnumerationBinary ;Gadget Flags
@@ -349,6 +351,10 @@ DeclareModule PureTL
 	; Public procedures declaration
 	Declare Gadget(Gadget, X, Y, Width, Height, Flags = #Default)
 	
+	; State
+	Declare GetActiveLine(Gadget)
+	Declare SetActiveLine(Gadget, LineID)
+	
 	; Line stuff
 	Declare AddLine(Gadget, Position, Text.s, Parent = 0, Flags = #Line_Default)
 	Declare RemoveLine(Gadget, Position, Text.s, Parent = 0, Flags = #Line_Default)
@@ -357,9 +363,6 @@ DeclareModule PureTL
 	Declare GetLineText(Gadget, LineID)
 	
 	Declare SetLineText(Gadget, LineID, Text.s)
-	
-	Declare GetActiveLine(Gadget)
-	Declare SetActiveLine(Gadget, LineID)
 	
 	; Media block
 	
@@ -404,7 +407,21 @@ Module PureTL
 	
 	;{ Public procedures
 	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #Default)
-		Protected Result = CanvasGadget(X, Y, Width, Height, #PB_Canvas_Container)
+		Protected Result = CanvasGadget(X, Y, Width, Height, #PB_Canvas_Container | #PB_Canvas_Keyboard)
+		
+		If Result
+			If Gadget = #PB_Any
+				Gadget = Result
+			EndIf
+			
+			
+			
+			
+			CloseGadgetList()
+		EndIf
+		
+		
+		ProcedureReturn Result
 	EndProcedure
 	
 	Procedure RemoveLine(Gadget, Position, Text.s, Parent = 0, Flags = #Line_Default)
@@ -499,6 +516,7 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 329
-; Folding = EAPwBI-
+; CursorPosition = 362
+; FirstLine = 6
+; Folding = EAMwDI-
 ; EnableXP

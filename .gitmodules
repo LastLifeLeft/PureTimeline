@@ -1,0 +1,15 @@
+[submodule "TaskList"]
+	path = TaskList
+	url = https://github.com/LastLifeLeft/TaskList
+[submodule "TextBox"]
+	path = TextBox
+	url = https://github.com/LastLifeLeft/TextBox
+[submodule "MaterialVector"]
+	path = MaterialVector
+	url = https://github.com/LastLifeLeft/MaterialVector
+[submodule "CanvasButton"]
+	path = CanvasButton
+	url = https://github.com/LastLifeLeft/CanvasButton
+[submodule "MaterialScrollBar"]
+	path = MaterialScrollBar
+	url = https://github.com/LastLifeLeft/MaterialScrollBar
