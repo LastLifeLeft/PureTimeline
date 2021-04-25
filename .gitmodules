@@ -1,9 +1,0 @@
-[submodule "MaterialVector"]
-	path = MaterialVector
-	url = https://github.com/LastLifeLeft/MaterialVector
-[submodule "CanvasButton"]
-	path = CanvasButton
-	url = https://github.com/LastLifeLeft/CanvasButton
-[submodule "MaterialScrollBar"]
-	path = MaterialScrollBar
-	url = https://github.com/LastLifeLeft/MaterialScrollBar

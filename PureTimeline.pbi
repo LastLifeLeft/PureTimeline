@@ -327,6 +327,8 @@ CompilerIf Not Defined(TaskList, #PB_Module)
 	IncludeFile "TaskList\TaskList.pbi"
 CompilerEndIf
 
+CompilerIf Not Defined(
+
 DeclareModule PureTL
 	; Public variables, structures, constants...
 	EnumerationBinary ;Gadget Flags
@@ -346,7 +348,25 @@ DeclareModule PureTL
 	
 	; Public procedures declaration
 	Declare Gadget(Gadget, X, Y, Width, Height, Flags = #Default)
-
+	
+	; Line stuff
+	Declare AddLine(Gadget, Position, Text.s, Parent = 0, Flags = #Line_Default)
+	Declare RemoveLine(Gadget, Position, Text.s, Parent = 0, Flags = #Line_Default)
+	
+	Declare GetLineID(Gadget, Position, Parent = 0)
+	Declare GetLineText(Gadget, LineID)
+	
+	Declare SetLineText(Gadget, LineID, Text.s)
+	
+	Declare GetActiveLine(Gadget)
+	Declare SetActiveLine(Gadget, LineID)
+	
+	; Media block
+	
+	; Data point
+	
+	
+	
 EndDeclareModule
 
 Module PureTL
@@ -385,6 +405,34 @@ Module PureTL
 	;{ Public procedures
 	Procedure Gadget(Gadget, X, Y, Width, Height, Flags = #Default)
 		Protected Result = CanvasGadget(X, Y, Width, Height, #PB_Canvas_Container)
+	EndProcedure
+	
+	Procedure RemoveLine(Gadget, Position, Text.s, Parent = 0, Flags = #Line_Default)
+		
+	EndProcedure
+	
+	Procedure AddLine(Gadget, Position, Text.s, Parent = 0, Flags = #Line_Default)
+		
+	EndProcedure
+			
+	Procedure GetLineID(Gadget, Position, Parent = 0)
+		
+	EndProcedure
+	
+	Procedure GetLineText(Gadget, LineID)
+		
+	EndProcedure
+	
+	Procedure SetLineText(Gadget, LineID, Text.s)
+		
+	EndProcedure
+	
+	Procedure GetActiveLine(Gadget)
+		
+	EndProcedure
+	
+	Procedure SetActiveLine(Gadget, LineID)
+		
 	EndProcedure
 	;}
 	
@@ -451,6 +499,6 @@ EndModule
 
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 386
-; Folding = EAH5z
+; CursorPosition = 329
+; Folding = EAPwBI-
 ; EnableXP
