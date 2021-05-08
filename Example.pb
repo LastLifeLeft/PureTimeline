@@ -1,4 +1,16 @@
-﻿IncludeFile "PureTimeline.pbi"
+﻿UsePNGImageDecoder()
+
+IncludeFile "PureTimeline.pbi"
+
+Global TaskList = TaskList::Create()
+
+Procedure Handler_UndoRedo()
+	If EventMenu() = 0
+		TaskList::Undo(TaskList)
+	Else
+		TaskList::Redo(TaskList)
+	EndIf
+EndProcedure
 
 Procedure Handler_CloseWindow()
 	End
@@ -10,7 +22,15 @@ EndProcedure
 
 OpenWindow(0, 0, 0, 700, 400, "PureTimeline Example", #PB_Window_SystemMenu | #PB_Window_ScreenCentered | #PB_Window_SizeGadget)
 
+SetWindowColor(0, $3A231A)
+
 PureTL::Gadget(0, 10, 10, 680, 380)
+PureTL::SetTaskList(0, TaskList)
+PureTL::AddLine(0, -1, "1")
+PureTL::AddLine(0, -1, "2")
+PureTL::AddLine(0, -1, "3")
+PureTL::AddLine(0, -1, "4")
+PureTL::AddLine(0, -1, "5")
 ; PureTL::Freeze(0, #True)
 ; PureTL::AddLine(0, -1, "Line 1")
 ; Line = PureTL::AddLine(0, -1, "Line 2")
@@ -52,13 +72,16 @@ PureTL::Gadget(0, 10, 10, 680, 380)
 ; 
 ; PureTL::Freeze(0, #False)
 ; WindowBounds(0, 700, 400, #PB_Ignore, #PB_Ignore)
-; BindEvent(#PB_Event_CloseWindow, @Handler_CloseWindow())
+BindEvent(#PB_Event_CloseWindow, @Handler_CloseWindow())
+AddKeyboardShortcut(0, #PB_Shortcut_Control | #PB_Shortcut_Z, 0)
+AddKeyboardShortcut(0, #PB_Shortcut_Control | #PB_Shortcut_Y, 1)
+BindEvent(#PB_Event_Menu, @Handler_UndoRedo())
 ; BindEvent(#PB_Event_SizeWindow, @Handler_SizeWindow())
 
 Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 10
-; Folding = +
+; CursorPosition = 32
+; Folding = 0
 ; EnableXP

@@ -8,36 +8,40 @@
   <section name="data">
     <explorer view="C:\ProgramData\PureBasic\Examples\" pattern="0"/>
     <log show="1"/>
-    <lastopen date="2021-04-25 16:46" user="Poshu" host="DESKTOP-OQ0F2A5"/>
+    <lastopen date="2021-05-08 19:44" user="Poshu" host="DESKTOP-OQ0F2A5"/>
   </section>
   <section name="files">
     <file name="CanvasButton\CanvasButton.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="4fbbf8c186f2146678fd1da85a57b49e"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
+      <fingerprint md5="873382164e80e3070a6cf2cd7a18b7da"/>
     </file>
     <file name="Example.pb">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="ae6bea7a5008fcd6c0d11a90076263cf"/>
+      <fingerprint md5="9d56c69a372d93b683d68aae0a36ddef"/>
+    </file>
+    <file name="GadgetTimer\GadgetTimer.pbi">
+      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
+      <fingerprint md5="eb1dc57c3af9a8e41be33204ba7e23ad"/>
     </file>
     <file name="MaterialScrollBar\ScrollBar.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
       <fingerprint md5="a6b0f50dfbf68fae12cb3f4a3231bdac"/>
     </file>
     <file name="MaterialVector\MaterialVector.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="13e4f2ea4ca8be4658b406384021c27c"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
+      <fingerprint md5="6c2645df4efeefcc40ab75ec4ac1a008"/>
     </file>
     <file name="PureTimeline.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="+"/>
-      <fingerprint md5="035be763775a68091595378f6a18e8d2"/>
+      <fingerprint md5="4f1d2f6931ba79cc8dbccf55584cd5f2"/>
     </file>
     <file name="TaskList\TaskList.pbi">
       <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
-      <fingerprint md5="04bfa1d3c4aebe42b6eadaa78fc26ed3"/>
+      <fingerprint md5="9c14b706be8a1f7b36b71139b32d0186"/>
     </file>
     <file name="TextBox\Textbox.pbi">
-      <config load="0" scan="1" panel="1" warn="1" lastopen="1" panelstate="++"/>
-      <fingerprint md5="143766b464ce852f3d399bee110f979d"/>
+      <config load="0" scan="1" panel="1" warn="1" lastopen="0" panelstate="++"/>
+      <fingerprint md5="e9a3543fc499940ba9934209c884b7a1"/>
     </file>
   </section>
   <section name="targets">
