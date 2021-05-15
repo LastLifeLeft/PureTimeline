@@ -17,8 +17,9 @@ Procedure Handler_CloseWindow()
 EndProcedure
 
 Procedure Handler_SizeWindow()
-;  	PureTL::Resize(0, #PB_Ignore, #PB_Ignore, WindowWidth(0) - 20, WindowHeight(0) - 20)
+  	PureTL::Resize(0, #PB_Ignore, #PB_Ignore, WindowWidth(0) - 20, WindowHeight(0) - 20)
 EndProcedure
+Global line, ParentLine
 
 OpenWindow(0, 0, 0, 700, 400, "PureTimeline Example", #PB_Window_SystemMenu | #PB_Window_ScreenCentered | #PB_Window_SizeGadget)
 
@@ -26,62 +27,29 @@ SetWindowColor(0, $3A231A)
 
 PureTL::Gadget(0, 10, 10, 680, 380)
 PureTL::SetTaskList(0, TaskList)
-PureTL::AddLine(0, -1, "1")
-PureTL::AddLine(0, -1, "2")
-PureTL::AddLine(0, -1, "3")
-PureTL::AddLine(0, -1, "4")
-PureTL::AddLine(0, -1, "5")
-; PureTL::Freeze(0, #True)
-; PureTL::AddLine(0, -1, "Line 1")
-; Line = PureTL::AddLine(0, -1, "Line 2")
-; PureTL::AddLine(0, -1, "SubLine 1", Line)
-; SubLine = PureTL::AddLine(0, -1, "SubLine 2", Line, PureTL::#Line_Folder)
-; PureTL::AddLine(0, -1, "SubLine 3", Line)
-; PureTL::AddLine(0, -1, "SubSubLine 1", SubLine)
-; PureTL::AddLine(0, -1, "SubSubLine 2", SubLine)
-; PureTL::AddLine(0, -1, "SubSubLine 3", SubLine)
-; PureTL::AddLine(0, -1, "SubSubLine 4", SubLine)
-; PureTL::AddLine(0, -1, "Line 3")
-; PureTL::AddLine(0, -1, "Line 4")
-; PureTL::AddLine(0, -1, "Line 5")
-; PureTL::AddLine(0, -1, "Line 6")
-; PureTL::AddLine(0, -1, "Line 7")
-; 
-; Line = PureTL::GetLineID(0, 0)
-; PureTL::AddMediaBlock(0, Line, 0, 6, "")
-; PureTL::AddMediaBlock(0, Line, 11, 19, "")
-; Line = PureTL::GetLineID(0, 1)
-; PureTL::AddMediaBlock(0, Line, 3, 21, "", MaterialVector::#Video)
-; Line = PureTL::GetLineID(0, 2)
-; PureTL::AddMediaBlock(0, Line, 3, 21, "", MaterialVector::#Music)
-; 
-; Line = PureTL::GetLineID(0, 3)
-; PureTL::AddDataPoint(0, Line, 31)
-; PureTL::AddDataPoint(0, Line, 32)
-; PureTL::AddDataPoint(0, Line, 33)
-; PureTL::AddDataPoint(0, Line, 44)
-; 
-; PureTL::AddMediaBlock(0, Line, 12, 37, "")
-; 
-; Line = PureTL::GetLineID(0, 4)
-; PureTL::AddMediaBlock(0, Line, 3, 21, "", MaterialVector::#Accessibility)
-; Line = PureTL::GetLineID(0, 5)
-; PureTL::AddMediaBlock(0, Line, 3, 21, "")
-; Line = PureTL::GetLineID(0, 6)
-; PureTL::AddMediaBlock(0, Line, 3, 21, "")
-; 
-; PureTL::Freeze(0, #False)
-; WindowBounds(0, 700, 400, #PB_Ignore, #PB_Ignore)
+ParentLine = PureTL::AddLine(0, -1, "Scene", 0, PureTL::#Line_Folder)
+line = PureTL::AddLine(0, -1, "Background", ParentLine)
+PureTL::AddMediaBlock(0, line, 11, 31, "󰕧", "S01E03_cave.mp4", $00CFDD)
+line = PureTL::AddLine(0, -1, "HDRI", ParentLine)
+PureTL::AddMediaBlock(0, line, 0, 100, "󰋩", "Cave", $FDAC41)
+line = PureTL::AddLine(0, -1, "Camera", ParentLine)
+PureTL::AddMediaBlock(0, line, 27, 101, "󰻇", "Dramatic zoom", $39DA8A )
+ParentLine = PureTL::AddLine(0, -1, "Actors", 0, PureTL::#Line_Folder)
+PureTL::AddLine(0, -1, "Broken bot", ParentLine)
+line = PureTL::AddLine(0, -1, "Overlay")
+PureTL::AddMediaBlock(0, line, 20, 21, "󱄤", "Fade In", $FF5B5C)
+PureTL::AddMediaBlock(0, line, 57, 40, "󱄤", "Something", $FF5B5C)
+
 BindEvent(#PB_Event_CloseWindow, @Handler_CloseWindow())
 AddKeyboardShortcut(0, #PB_Shortcut_Control | #PB_Shortcut_Z, 0)
 AddKeyboardShortcut(0, #PB_Shortcut_Control | #PB_Shortcut_Y, 1)
 BindEvent(#PB_Event_Menu, @Handler_UndoRedo())
-; BindEvent(#PB_Event_SizeWindow, @Handler_SizeWindow())
+BindEvent(#PB_Event_SizeWindow, @Handler_SizeWindow())
 
 Repeat
 	WaitWindowEvent()
 ForEver
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 32
+; CursorPosition = 40
 ; Folding = 0
 ; EnableXP
